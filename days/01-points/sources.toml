@@ -20,3 +20,12 @@ what = "7 points, one per tower, each with its own link in the map popup (Wikipe
 time = "Listings describe buildings from the 1850s–1910; looked up 3 Nov 2026"
 resolution = "single points from Wikipedia, OpenStreetMap (Nominatim) and listing-page coordinates (~10–100 m); the Forest Hill folly is in a private garden so its location is approximate"
 licence = "Wikipedia text CC BY-SA; OpenStreetMap geocoding ODbL; Historic England listings Open Government Licence"
+
+[[source]]
+name = "Tower photos (images/, shown on hover)"
+url = "https://commons.wikimedia.org/"
+from = "Wikimedia Commons contributors; each photographer is credited in the map's hover card and in towers.csv (image_credit)"
+what = "13 photos, one per tower where a usable photo was found; 4 towers have none yet (Dropped pin, St Mungo's, Forest Hill folly, Finchley)"
+time = "Photos taken at various dates; downloaded 3 Nov 2026"
+resolution = "resized to 480 px wide JPEGs; some show the tower at a distance or from an angle"
+licence = "CC BY-SA 2.0 / 4.0, CC BY 4.0 or CC0 depending on the photo (see image_credit in towers.csv); credit shown on the map"

@@ -10,6 +10,7 @@ It saves map.html next to this file. Then see it on the site with:
     python build.py --serve
 """
 
+import base64
 import math
 from pathlib import Path
 
@@ -39,6 +40,8 @@ style_map(m)                      # the site's font + ink-outlined buttons
 #   verified: yes / no   (no = dashed, pale marker, and the filter's "Unverified" layer)
 #   originally_water_tower: yes / no (adds a line to the popup + a filter)
 #   shape:    octagonal / hexagonal (hexagons can be hidden with the "Include hexagonal herrings?" box)
+#   image_url: photo to show on hover. Change it, then run fetch_images.py
+#   (it downloads to images/ and fills the image + keeps the site self-contained)
 #   link:     "More" link in the popup     image: image URL shown in the popup (optional)
 towers = pd.read_csv(HERE / "towers.csv", keep_default_na=False)
 print(len(towers), "towers,", (towers.verified == "no").sum(), "unverified")
@@ -55,6 +58,14 @@ OCTAGON = "".join(
     for i in range(8)
 )
 
+def photo(filename):
+    """A photo from images/ as an inline data URI, so map.html needs no other files."""
+    if not filename:
+        return ""
+    data = base64.b64encode((HERE / "images" / filename).read_bytes()).decode()
+    return f"data:image/jpeg;base64,{data}"
+
+
 HEXAGON = "".join(
     f"{SIZE/2 + (SIZE/2 - 1) * math.cos(math.radians(60 * i)):.1f},"
     f"{SIZE/2 + (SIZE/2 - 1) * math.sin(math.radians(60 * i)):.1f} "
@@ -69,12 +80,16 @@ for t in towers.itertuples():
         f'<polygon points="{HEXAGON if hexa else OCTAGON}" fill="{colours[t.type]}" fill-opacity="{0.95 if ok else 0.45}" '
         f'stroke="{P.INK}" stroke-width="1.5"{"" if ok else " stroke-dasharray=\"3 2\""}/></svg>'
     )
-    img = f'<img src="{t.image}" style="width:100%;margin-top:6px">' if t.image else ""
+    src = photo(t.image)
+    credit = f'<div style="font-size:10px;opacity:.7">Photo: {t.image_credit}</div>' if t.image_credit else ""
+    hover = f"<b>{t.name}</b>" + (
+        f'<br><img src="{src}" style="width:220px;margin-top:4px;display:block">{credit}' if src else ""
+    )
     more = f'<br><a href="{t.link}" target="_blank" rel="noopener">More &rarr;</a>' if t.link else ""
     tip = (
         f"<b>{t.name}</b><br>{t.type}" + (" · hexagonal!" if hexa else "") + ("" if ok else " (unverified)")
         + ("<br><i>Originally a water tower</i>" if t.originally_water_tower == "yes" else "")
-        + (f"<br>{t.note}" if t.note else "") + more + img
+        + (f"<br>{t.note}" if t.note else "") + more
     )
     folium.Marker(
         location=[t.lat, t.lon],
@@ -83,7 +98,7 @@ for t in towers.itertuples():
             class_name=f"tower ver-{t.verified} water-{t.originally_water_tower or 'no'} shape-{'hex' if hexa else 'oct'}",
         ),
         popup=folium.Popup(tip, max_width=260),
-        tooltip=f"{t.name}",
+        tooltip=folium.Tooltip(hover, sticky=False),
     ).add_to(m)
 
 # Filters: tick boxes (top right) show/hide markers by their CSS classes. A tower
