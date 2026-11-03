@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+  .leaflet-container { font-family: "Bricolage Grotesque", system-ui, sans-serif; background: #d3e0e0; }
+  .leaflet-bar { border: 1.5px solid #171412 !important; border-radius: 0 !important; box-shadow: none !important; }
+  .leaflet-bar a { background: #f1ece2; color: #171412; border-radius: 0 !important; border-bottom-color: #171412 !important; }
+  .leaflet-bar a:hover { background: #33bbee; }
+  .leaflet-tooltip, .leaflet-popup-content-wrapper {
+    background: #f1ece2; color: #171412; border: 1.5px solid #171412;
+    border-radius: 0; box-shadow: 3px 3px 0 #171412; font-size: 13px;
+  }
+  .leaflet-popup-tip { background: #171412; }
+  .leaflet-tooltip-top:before { border-top-color: #171412; }
+  .leaflet-control-attribution { background: rgba(241, 236, 226, .85) !important; color: #5a5248; font-size: 10px; }
+  .mk-box {
+    position: fixed; z-index: 1000; background: #f1ece2; color: #171412;
+    border: 1.5px solid #171412; padding: 10px 12px; font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  }
+  .mk-legend { right: 12px; bottom: 28px; font-size: 13px; line-height: 1.7; max-width: 260px; }
+  .mk-legend b { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  .mk-legend i { display: inline-block; width: 13px; height: 13px; margin-right: 7px; vertical-align: -2px; border: 1.5px solid #171412; }
+  .mk-legend i.circle { border-radius: 50%; }
+  .mk-legend i.line { height: 4px; width: 22px; border: 0; vertical-align: 3px; }
+  .mk-title { left: 56px; top: 12px; max-width: 360px; }
+  .mk-title h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+  .mk-title p { margin: 4px 0 0; font-size: 13px; color: #5a5248; }
+</style>
+    <style>.mk-legend i{border-radius:0!important;clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%)}</style>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_d1ea4c548b22a8193d74ed153683aaa2 {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    
+<div class="mk-box" style="position:absolute;top:12px;right:12px;z-index:1000;font-size:13px;line-height:1.7">
+  <b>Show</b>
+  <label style="display:block"><input type="checkbox" data-f="ver-yes" checked> Verified octagonal</label>
+  <label style="display:block"><input type="checkbox" data-f="ver-no" checked> Unverified (to check)</label>
+  <hr style="margin:4px 0">
+  <label style="display:block"><input type="checkbox" data-f="water-yes" checked> Originally a water tower</label>
+  <hr style="margin:4px 0">
+  <label style="display:block"><input type="checkbox" data-f="shape-hex" checked> Include hexagonal herrings?</label>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var boxes = document.querySelectorAll("[data-f]");
+  function apply() {
+    var on = {};
+    boxes.forEach(function (b) { on[b.dataset.f] = b.checked; });
+    document.querySelectorAll(".tower").forEach(function (el) {
+      var show = ["ver-", "water-", "shape-"].every(function (prefix) {
+        var c = Array.from(el.classList).find(function (x) { return x.indexOf(prefix) === 0; });
+        return on[c] !== false;  // water-no and shape-oct have no box: always shown
+      });
+      el.style.display = show ? "" : "none";
+    });
+  }
+  boxes.forEach(function (b) { b.addEventListener("change", apply); });
+  apply();
+});
+</script>
+    <div class="mk-box mk-title"><h1>London&#x27;s octagonal towers</h1><p>Spotted around town; the list keeps growing</p></div>
+    <div class="mk-box mk-legend"><b>Building type</b><div><i class="circle" style="background:#ee7733"></i>Public building</div><div><i class="circle" style="background:#0077bb"></i>House</div><div><i class="circle" style="background:#33bbee"></i>Church</div><div><i class="circle" style="background:#ee3377"></i>Unknown</div></div>
+    
+            <div class="folium-map" id="map_d1ea4c548b22a8193d74ed153683aaa2" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_d1ea4c548b22a8193d74ed153683aaa2 = L.map(
+                "map_d1ea4c548b22a8193d74ed153683aaa2",
+                {
+                    center: [51.537756, -0.17832],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 12,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_e3d12a30fbc0252d70fa4bc4514a03de = L.tileLayer(
+                "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 16,
+  "noWrap": false,
+  "attribution": "Tiles \u0026copy; Esri \u0026mdash; Esri, HERE, Garmin, \u0026copy; OpenStreetMap contributors, and the GIS User Community",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_e3d12a30fbc0252d70fa4bc4514a03de.addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var tile_layer_d66206b649e95666db7caafa19017c5e = L.tileLayer(
+                "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 16,
+  "noWrap": false,
+  "attribution": "Tiles \u0026copy; Esri \u0026mdash; Esri, HERE, Garmin, \u0026copy; OpenStreetMap contributors, and the GIS User Community",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_d66206b649e95666db7caafa19017c5e.addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var marker_b0e4dae6c69ff6cd2806cfb3a3609906 = L.marker(
+                [51.570061599999995, -0.1491333],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_006877b22a1bac4b7eb884090f980a65 = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#33bbee\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-no shape-oct",
+});
+        
+    
+        var popup_2ad1f252dbbd6652809a29cb6463c5b6 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_ab1a916442e68800172ad77a4d052c6a = $(`<div id="html_ab1a916442e68800172ad77a4d052c6a" style="width: 100.0%; height: 100.0%;"><b>Highgate URC Church</b><br>Church<br><a href="https://britishlistedbuildings.co.uk/101378769-highgate-united-reformed-church-highgate-ward" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_2ad1f252dbbd6652809a29cb6463c5b6.setContent(html_ab1a916442e68800172ad77a4d052c6a);
+            
+        
+
+        marker_b0e4dae6c69ff6cd2806cfb3a3609906.bindPopup(popup_2ad1f252dbbd6652809a29cb6463c5b6)
+        ;
+
+        
+    
+    
+            marker_b0e4dae6c69ff6cd2806cfb3a3609906.bindTooltip(
+                `<div>
+                     Highgate URC Church
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_b0e4dae6c69ff6cd2806cfb3a3609906.setIcon(div_icon_006877b22a1bac4b7eb884090f980a65);
+            
+    
+            var marker_60fb88b3663913e1ed109abe5943b66d = L.marker(
+                [51.557370999999996, -0.0560532],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_6723ec4b95856f1d10229d8844d6d238 = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#33bbee\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-no shape-oct",
+});
+        
+    
+        var popup_86c655fb8e06489cdfdfa165a557db58 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_a10cad6c8e2b77277fe1154640a98061 = $(`<div id="html_a10cad6c8e2b77277fe1154640a98061" style="width: 100.0%; height: 100.0%;"><b>Saint James the Great Church</b><br>Church<br>90% sure octagonal! Come by to check! Pretty!<br><a href="https://londonchurchbuildings.com/2013/12/15/st-james-clapton-pond/" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_86c655fb8e06489cdfdfa165a557db58.setContent(html_a10cad6c8e2b77277fe1154640a98061);
+            
+        
+
+        marker_60fb88b3663913e1ed109abe5943b66d.bindPopup(popup_86c655fb8e06489cdfdfa165a557db58)
+        ;
+
+        
+    
+    
+            marker_60fb88b3663913e1ed109abe5943b66d.bindTooltip(
+                `<div>
+                     Saint James the Great Church
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_60fb88b3663913e1ed109abe5943b66d.setIcon(div_icon_6723ec4b95856f1d10229d8844d6d238);
+            
+    
+            var marker_d586d6f657c7ba965a2afd8642263334 = L.marker(
+                [51.56541, -0.0926277],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_71a77b66754d71c96b83ecd581950fb8 = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#ee7733\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-yes shape-oct",
+});
+        
+    
+        var popup_bec9f45e3607f92d2a70e23f23ee3bcd = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_b86aa95001b28508e9eab653472d5c9b = $(`<div id="html_b86aa95001b28508e9eab653472d5c9b" style="width: 100.0%; height: 100.0%;"><b>The Castle Climbing Centre</b><br>Public building<br><i>Originally a water tower</i><br><a href="https://thelondonphile.com/2013/02/11/stoke-newington-pumping-station/" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_bec9f45e3607f92d2a70e23f23ee3bcd.setContent(html_b86aa95001b28508e9eab653472d5c9b);
+            
+        
+
+        marker_d586d6f657c7ba965a2afd8642263334.bindPopup(popup_bec9f45e3607f92d2a70e23f23ee3bcd)
+        ;
+
+        
+    
+    
+            marker_d586d6f657c7ba965a2afd8642263334.bindTooltip(
+                `<div>
+                     The Castle Climbing Centre
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_d586d6f657c7ba965a2afd8642263334.setIcon(div_icon_71a77b66754d71c96b83ecd581950fb8);
+            
+    
+            var marker_b6a24d0e6558cfe042ce4b8a6e111002 = L.marker(
+                [51.547472199999994, -0.09255],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_79105f867f3c558a5caef9387b07a0f9 = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#0077bb\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-no shape-oct",
+});
+        
+    
+        var popup_7a0724edf81faef5a1daeb032aa3515d = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_cd8bec80d066bd07d833e53d6e969396 = $(`<div id="html_cd8bec80d066bd07d833e53d6e969396" style="width: 100.0%; height: 100.0%;"><b>Dropped pin</b><br>House<br>Half tower as part of someone's house</div>`)[0];
+                popup_7a0724edf81faef5a1daeb032aa3515d.setContent(html_cd8bec80d066bd07d833e53d6e969396);
+            
+        
+
+        marker_b6a24d0e6558cfe042ce4b8a6e111002.bindPopup(popup_7a0724edf81faef5a1daeb032aa3515d)
+        ;
+
+        
+    
+    
+            marker_b6a24d0e6558cfe042ce4b8a6e111002.bindTooltip(
+                `<div>
+                     Dropped pin
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_b6a24d0e6558cfe042ce4b8a6e111002.setIcon(div_icon_79105f867f3c558a5caef9387b07a0f9);
+            
+    
+            var marker_ceb709cdeabd7a2aefa4be0641050e92 = L.marker(
+                [51.5410803, -0.09698079999999999],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_9e7c842cbd2edac12e431b3c5f762bb4 = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#33bbee\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-no shape-oct",
+});
+        
+    
+        var popup_0f72811386507fb5bcb01dcc57b25f27 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_93115695a1c7e9505e52b750b4f2f2c8 = $(`<div id="html_93115695a1c7e9505e52b750b4f2f2c8" style="width: 100.0%; height: 100.0%;"><b>St Stephens canonbury</b><br>Church<br><a href="https://www.historicengland.org.uk/listing/the-list/list-entry/1298094" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_0f72811386507fb5bcb01dcc57b25f27.setContent(html_93115695a1c7e9505e52b750b4f2f2c8);
+            
+        
+
+        marker_ceb709cdeabd7a2aefa4be0641050e92.bindPopup(popup_0f72811386507fb5bcb01dcc57b25f27)
+        ;
+
+        
+    
+    
+            marker_ceb709cdeabd7a2aefa4be0641050e92.bindTooltip(
+                `<div>
+                     St Stephens canonbury
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_ceb709cdeabd7a2aefa4be0641050e92.setIcon(div_icon_9e7c842cbd2edac12e431b3c5f762bb4);
+            
+    
+            var marker_3cce24ed99c478659fdbcfd604d18a9a = L.marker(
+                [51.5059, -0.3812],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_68115084ea04ee14f0df4924fed76b80 = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"21.0,11.0 16.0,19.7 6.0,19.7 1.0,11.0 6.0,2.3 16.0,2.3 \" fill=\"#ee7733\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-yes shape-hex",
+});
+        
+    
+        var popup_1aef3adc24d1a25610419df25a1a64bc = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_fc35ea62058f84c6eaa968ea88ae9f3f = $(`<div id="html_fc35ea62058f84c6eaa968ea88ae9f3f" style="width: 100.0%; height: 100.0%;"><b>Southall Water Tower</b><br>Public building · hexagonal!<br><i>Originally a water tower</i><br>Seen from train, as Queen Victoria did!<br><a href="https://britishlistedbuildings.co.uk/101079411-the-water-tower-southall-broadway-ward" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_1aef3adc24d1a25610419df25a1a64bc.setContent(html_fc35ea62058f84c6eaa968ea88ae9f3f);
+            
+        
+
+        marker_3cce24ed99c478659fdbcfd604d18a9a.bindPopup(popup_1aef3adc24d1a25610419df25a1a64bc)
+        ;
+
+        
+    
+    
+            marker_3cce24ed99c478659fdbcfd604d18a9a.bindTooltip(
+                `<div>
+                     Southall Water Tower
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_3cce24ed99c478659fdbcfd604d18a9a.setIcon(div_icon_68115084ea04ee14f0df4924fed76b80);
+            
+    
+            var marker_5118728073e081d88e397c596dce54b3 = L.marker(
+                [51.587318499999995, -0.1090251],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_b9d43f927a4cc84ea310a9d72eddb9ca = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#ee7733\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-no shape-oct",
+});
+        
+    
+        var popup_38ade097f0445c5bc3f57273286452a2 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_89891c4bbcf77888f26ca6f42f7c1f78 = $(`<div id="html_89891c4bbcf77888f26ca6f42f7c1f78" style="width: 100.0%; height: 100.0%;"><b>London Islamic Cultural Society and Mosque (LICS)</b><br>Public building<br><a href="https://en.wikipedia.org/wiki/London_Islamic_Cultural_Society" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_38ade097f0445c5bc3f57273286452a2.setContent(html_89891c4bbcf77888f26ca6f42f7c1f78);
+            
+        
+
+        marker_5118728073e081d88e397c596dce54b3.bindPopup(popup_38ade097f0445c5bc3f57273286452a2)
+        ;
+
+        
+    
+    
+            marker_5118728073e081d88e397c596dce54b3.bindTooltip(
+                `<div>
+                     London Islamic Cultural Society and Mosque (LICS)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_5118728073e081d88e397c596dce54b3.setIcon(div_icon_b9d43f927a4cc84ea310a9d72eddb9ca);
+            
+    
+            var marker_7d176a62731b12cb8f657a07f074a61b = L.marker(
+                [51.5865045, -0.10795909999999999],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_348713e6b453756c2b869fd66aab4301 = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#33bbee\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-no shape-oct",
+});
+        
+    
+        var popup_d3f9c9d086abdb712422f90e4ff9e959 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_9c4301e87f40101b43c675b44b3a0c9c = $(`<div id="html_9c4301e87f40101b43c675b44b3a0c9c" style="width: 100.0%; height: 100.0%;"><b>St John The Baptist Greek Orthodox Church</b><br>Church<br>Spotted on way back from ally pally and physio. Prettyy<br><a href="https://londonchurchbuildings.com/2013/02/06/st-peter-hornsey-greek-orthodox/" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_d3f9c9d086abdb712422f90e4ff9e959.setContent(html_9c4301e87f40101b43c675b44b3a0c9c);
+            
+        
+
+        marker_7d176a62731b12cb8f657a07f074a61b.bindPopup(popup_d3f9c9d086abdb712422f90e4ff9e959)
+        ;
+
+        
+    
+    
+            marker_7d176a62731b12cb8f657a07f074a61b.bindTooltip(
+                `<div>
+                     St John The Baptist Greek Orthodox Church
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_7d176a62731b12cb8f657a07f074a61b.setIcon(div_icon_348713e6b453756c2b869fd66aab4301);
+            
+    
+            var marker_aa37bbdcb6584597cdd206e4ae3ea2c3 = L.marker(
+                [51.5883793, -0.0713179],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_835217bd196e0ae23328f4569c2d98d6 = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#33bbee\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-no shape-oct",
+});
+        
+    
+        var popup_4f7b09949afb8122f66aae9f10de792e = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_997b9e910e1b2820a13bbaafded6f882 = $(`<div id="html_997b9e910e1b2820a13bbaafded6f882" style="width: 100.0%; height: 100.0%;"><b>Holy Trinity Church, Philip Lane, Tottenham</b><br>Church<br><a href="https://britishlistedbuildings.co.uk/101189333-church-of-holy-trinity-tottenham-green-ward" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_4f7b09949afb8122f66aae9f10de792e.setContent(html_997b9e910e1b2820a13bbaafded6f882);
+            
+        
+
+        marker_aa37bbdcb6584597cdd206e4ae3ea2c3.bindPopup(popup_4f7b09949afb8122f66aae9f10de792e)
+        ;
+
+        
+    
+    
+            marker_aa37bbdcb6584597cdd206e4ae3ea2c3.bindTooltip(
+                `<div>
+                     Holy Trinity Church, Philip Lane, Tottenham
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_aa37bbdcb6584597cdd206e4ae3ea2c3.setIcon(div_icon_835217bd196e0ae23328f4569c2d98d6);
+            
+    
+            var marker_7bf1a8bb07bb1844928d61dbb6401e0f = L.marker(
+                [51.5515791, -0.1265666],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_551e4c4bfc2c092d400f432a9402e441 = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#ee3377\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-no shape-oct",
+});
+        
+    
+        var popup_a77bae28e9b4ed91854991d2e7f802f0 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_ed080857dd97c4ad9242c49382a2330c = $(`<div id="html_ed080857dd97c4ad9242c49382a2330c" style="width: 100.0%; height: 100.0%;"><b>St Mungo’s: Hilldrop Road, Islington</b><br>Unknown<br><a href="https://britishlistedbuildings.co.uk/101279707-1-and-2-hilldrop-road-st-georges-ward" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_a77bae28e9b4ed91854991d2e7f802f0.setContent(html_ed080857dd97c4ad9242c49382a2330c);
+            
+        
+
+        marker_7bf1a8bb07bb1844928d61dbb6401e0f.bindPopup(popup_a77bae28e9b4ed91854991d2e7f802f0)
+        ;
+
+        
+    
+    
+            marker_7bf1a8bb07bb1844928d61dbb6401e0f.bindTooltip(
+                `<div>
+                     St Mungo’s: Hilldrop Road, Islington
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_7bf1a8bb07bb1844928d61dbb6401e0f.setIcon(div_icon_551e4c4bfc2c092d400f432a9402e441);
+            
+    
+            var marker_3cd3a669e681e5d16f2de8caf41f17d3 = L.marker(
+                [51.51377778, -0.10547222],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_33b2ea3a54b875e7284809892bbc9885 = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#33bbee\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-no shape-oct",
+});
+        
+    
+        var popup_958e3b15c079127f743d6ebf0b9be239 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_0de0a5ead40eb411fcee9c128ae904f0 = $(`<div id="html_0de0a5ead40eb411fcee9c128ae904f0" style="width: 100.0%; height: 100.0%;"><b>St Bride's Church</b><br>Church<br>Wren's steeple: four octagonal stages<br><a href="https://en.wikipedia.org/wiki/St_Bride%27s_Church" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_958e3b15c079127f743d6ebf0b9be239.setContent(html_0de0a5ead40eb411fcee9c128ae904f0);
+            
+        
+
+        marker_3cd3a669e681e5d16f2de8caf41f17d3.bindPopup(popup_958e3b15c079127f743d6ebf0b9be239)
+        ;
+
+        
+    
+    
+            marker_3cd3a669e681e5d16f2de8caf41f17d3.bindTooltip(
+                `<div>
+                     St Bride's Church
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_3cd3a669e681e5d16f2de8caf41f17d3.setIcon(div_icon_33b2ea3a54b875e7284809892bbc9885);
+            
+    
+            var marker_a90e37f4c0698603f9e73c99e7f610fb = L.marker(
+                [51.5093346, -0.086208],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_9874b1eb3d2cddc3785b2082dbc22ee8 = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#33bbee\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-no shape-oct",
+});
+        
+    
+        var popup_d9ffec049f25fd6dad3fb151f9038f3d = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_b5f15153606345758b401a9db11bf0d5 = $(`<div id="html_b5f15153606345758b401a9db11bf0d5" style="width: 100.0%; height: 100.0%;"><b>St Magnus the Martyr</b><br>Church<br>Octagonal lantern and cupola<br><a href="https://en.wikipedia.org/wiki/St_Magnus-the-Martyr" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_d9ffec049f25fd6dad3fb151f9038f3d.setContent(html_b5f15153606345758b401a9db11bf0d5);
+            
+        
+
+        marker_a90e37f4c0698603f9e73c99e7f610fb.bindPopup(popup_d9ffec049f25fd6dad3fb151f9038f3d)
+        ;
+
+        
+    
+    
+            marker_a90e37f4c0698603f9e73c99e7f610fb.bindTooltip(
+                `<div>
+                     St Magnus the Martyr
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_a90e37f4c0698603f9e73c99e7f610fb.setIcon(div_icon_9874b1eb3d2cddc3785b2082dbc22ee8);
+            
+    
+            var marker_236174193d602edd6f3f0f2828f83087 = L.marker(
+                [51.4713, -0.2957],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_62ef90d12049a414a988c0c0a3d9ee15 = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#ee7733\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-no shape-oct",
+});
+        
+    
+        var popup_feb1bc50bdc5d52c02a3c12223bcb8b5 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_518b2a6a5c8bd9289bb33fd5c93329eb = $(`<div id="html_518b2a6a5c8bd9289bb33fd5c93329eb" style="width: 100.0%; height: 100.0%;"><b>Great Pagoda (Kew Gardens)</b><br>Public building<br>Octagonal pagoda<br><a href="https://en.wikipedia.org/wiki/Great_Pagoda,_Kew_Gardens" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_feb1bc50bdc5d52c02a3c12223bcb8b5.setContent(html_518b2a6a5c8bd9289bb33fd5c93329eb);
+            
+        
+
+        marker_236174193d602edd6f3f0f2828f83087.bindPopup(popup_feb1bc50bdc5d52c02a3c12223bcb8b5)
+        ;
+
+        
+    
+    
+            marker_236174193d602edd6f3f0f2828f83087.bindTooltip(
+                `<div>
+                     Great Pagoda (Kew Gardens)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_236174193d602edd6f3f0f2828f83087.setIcon(div_icon_62ef90d12049a414a988c0c0a3d9ee15);
+            
+    
+            var marker_78b25c0d666e27c0c3d715722ef9ac12 = L.marker(
+                [51.4456, -0.057],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_9900312dd8be1903de9e302c020ceace = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#0077bb\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-no shape-oct",
+});
+        
+    
+        var popup_3c610f8263d00ee5509f62cb3381ac1c = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_b55e7e9b31209dc22dc13f7b812cbcb1 = $(`<div id="html_b55e7e9b31209dc22dc13f7b812cbcb1" style="width: 100.0%; height: 100.0%;"><b>Folly tower (Forest Hill)</b><br>House<br>Octagonal 3-storey folly c.1880 in a private garden; location approximate<br><a href="https://britishlistedbuildings.co.uk/101193448-folly-tower-in-back-garden-of-number-23-forest-hill-ward" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_3c610f8263d00ee5509f62cb3381ac1c.setContent(html_b55e7e9b31209dc22dc13f7b812cbcb1);
+            
+        
+
+        marker_78b25c0d666e27c0c3d715722ef9ac12.bindPopup(popup_3c610f8263d00ee5509f62cb3381ac1c)
+        ;
+
+        
+    
+    
+            marker_78b25c0d666e27c0c3d715722ef9ac12.bindTooltip(
+                `<div>
+                     Folly tower (Forest Hill)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_78b25c0d666e27c0c3d715722ef9ac12.setIcon(div_icon_9900312dd8be1903de9e302c020ceace);
+            
+    
+            var marker_f545eb7e9e294d6c7683a17bbd5f39c2 = L.marker(
+                [51.5965, -0.1927],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_166edff03085ace6ba9a657313cf087c = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#ee7733\" fill-opacity=\"0.45\" stroke=\"#171412\" stroke-width=\"1.5\" stroke-dasharray=\"3 2\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-no water-yes shape-oct",
+});
+        
+    
+        var popup_4382efc7b4d25f74db676caab1709764 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_d25a1524b8923675a2f917c29d32c69c = $(`<div id="html_d25a1524b8923675a2f917c29d32c69c" style="width: 100.0%; height: 100.0%;"><b>Finchley water tower</b><br>Public building (unverified)<br><i>Originally a water tower</i><br>Octagonal 3-storey water tower c.1880<br><a href="https://britishlistedbuildings.co.uk/101387524-water-tower-finchley-church-end-ward" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_4382efc7b4d25f74db676caab1709764.setContent(html_d25a1524b8923675a2f917c29d32c69c);
+            
+        
+
+        marker_f545eb7e9e294d6c7683a17bbd5f39c2.bindPopup(popup_4382efc7b4d25f74db676caab1709764)
+        ;
+
+        
+    
+    
+            marker_f545eb7e9e294d6c7683a17bbd5f39c2.bindTooltip(
+                `<div>
+                     Finchley water tower
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_f545eb7e9e294d6c7683a17bbd5f39c2.setIcon(div_icon_166edff03085ace6ba9a657313cf087c);
+            
+    
+            var marker_59ada98f8bce984e974cc9efa3a77b86 = L.marker(
+                [51.4689909, 0.068476],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_2d6990945d6b61b02f8ea1a658f359df = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#ee7733\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-yes shape-oct",
+});
+        
+    
+        var popup_237cd403b67e418d34c321d05430a34b = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_d5ec8842f95a230b2e68229299fbe005 = $(`<div id="html_d5ec8842f95a230b2e68229299fbe005" style="width: 100.0%; height: 100.0%;"><b>Shooters Hill water tower</b><br>Public building<br><i>Originally a water tower</i><br>Octagonal tower, 1910<br><a href="https://britishlistedbuildings.co.uk/101211837-water-tower-at-east-side-of-junction-with-cleanthus-road-shooters-hill-ward" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_237cd403b67e418d34c321d05430a34b.setContent(html_d5ec8842f95a230b2e68229299fbe005);
+            
+        
+
+        marker_59ada98f8bce984e974cc9efa3a77b86.bindPopup(popup_237cd403b67e418d34c321d05430a34b)
+        ;
+
+        
+    
+    
+            marker_59ada98f8bce984e974cc9efa3a77b86.bindTooltip(
+                `<div>
+                     Shooters Hill water tower
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_59ada98f8bce984e974cc9efa3a77b86.setIcon(div_icon_2d6990945d6b61b02f8ea1a658f359df);
+            
+    
+            var marker_3e5edaaefc77ea89ad64d557486a9ee2 = L.marker(
+                [51.511996, -0.0349117],
+                {
+}
+            ).addTo(map_d1ea4c548b22a8193d74ed153683aaa2);
+        
+    
+            var div_icon_164b12a8eda7514319b98ee20715871a = L.divIcon({
+  "html": "\u003csvg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\"\u003e\u003cpolygon points=\"20.2,14.8 14.8,20.2 7.2,20.2 1.8,14.8 1.8,7.2 7.2,1.8 14.8,1.8 20.2,7.2 \" fill=\"#ee7733\" fill-opacity=\"0.95\" stroke=\"#171412\" stroke-width=\"1.5\"/\u003e\u003c/svg\u003e",
+  "iconSize": [22, 22],
+  "iconAnchor": [11, 11],
+  "className": "tower ver-yes water-no shape-oct",
+});
+        
+    
+        var popup_1afa248465f13c75bc3e086628612de3 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_9b79b2247980b9223e3f26f452d85d37 = $(`<div id="html_9b79b2247980b9223e3f26f452d85d37" style="width: 100.0%; height: 100.0%;"><b>Limehouse Accumulator Tower</b><br>Public building<br>Victorian hydraulic power tower beside the DLR<br><a href="https://euroblog.jonworth.eu/limehouse-accumulator-tower-eccentric-joys-of-london/" target="_blank" rel="noopener">More &rarr;</a></div>`)[0];
+                popup_1afa248465f13c75bc3e086628612de3.setContent(html_9b79b2247980b9223e3f26f452d85d37);
+            
+        
+
+        marker_3e5edaaefc77ea89ad64d557486a9ee2.bindPopup(popup_1afa248465f13c75bc3e086628612de3)
+        ;
+
+        
+    
+    
+            marker_3e5edaaefc77ea89ad64d557486a9ee2.bindTooltip(
+                `<div>
+                     Limehouse Accumulator Tower
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_3e5edaaefc77ea89ad64d557486a9ee2.setIcon(div_icon_164b12a8eda7514319b98ee20715871a);
+            
+    
+            map_d1ea4c548b22a8193d74ed153683aaa2.fitBounds(
+                [[51.4456, -0.3812], [51.5965, 0.068476]],
+                {"padding": [30, 30]}
+            );
+        
+    
+            map_d1ea4c548b22a8193d74ed153683aaa2.attributionControl.addAttribution("Towers: my own Google Maps list plus Historic England, Wikipedia and other sources linked per tower");
+        
+</script>
+</html>

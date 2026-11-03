@@ -1,0 +1,22 @@
+# Where does the data come from? One [[source]] block per dataset.
+# Everything here shows on the day page. Empty fields show a red "missing" flag.
+#
+# towers.csv in this folder is the master list; anyone can add rows by pull request.
+
+[[source]]
+name = "London: octagonal towers"
+url = "https://maps.app.goo.gl/HSGeyiWLda7pXoDZ9"
+from = "Tom O'Neill (asliceoftom), my own saved places in Google Maps"
+what = "10 points, one per octagonal tower or spire I have spotted in London; towers I haven't noticed are not included, and a few are unconfirmed guesses (see notes in the list)"
+time = "Towers saved May–July 2024; imported into towers.csv on 3 Nov 2026"
+resolution = "single points placed by hand in Google Maps (~10 m); building, not tower, location"
+licence = "My own data; no third-party licence"
+
+[[source]]
+name = "Octagonal towers added from research (towers.csv)"
+url = "https://historicengland.org.uk/listing/the-list/"
+from = "Historic England (National Heritage List), Wikipedia contributors, and a Limehouse blog post by Jon Worth; compiled by Tom O'Neill"
+what = "7 points, one per tower, each with its own link in the map popup (Wikipedia, britishlistedbuildings.co.uk which republishes Historic England listings, or the blog). Finchley is marked unverified"
+time = "Listings describe buildings from the 1850s–1910; looked up 3 Nov 2026"
+resolution = "single points from Wikipedia, OpenStreetMap (Nominatim) and listing-page coordinates (~10–100 m); the Forest Hill folly is in a private garden so its location is approximate"
+licence = "Wikipedia text CC BY-SA; OpenStreetMap geocoding ODbL; Historic England listings Open Government Licence"

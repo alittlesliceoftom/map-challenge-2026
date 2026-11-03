@@ -1,8 +1,8 @@
-# Settings for the website. Run `python3 setup_challenge.py` to fill these in
-# with a few questions, or edit them by hand. Then run `python build.py`.
+# Settings for the website. Edit freely, then run `python build.py`.
+# (Written by setup_challenge.py: run it again any time to redo these answers.)
 
-name = "Your Name"                   # shown top-right on the calendar
-made_by_url = ""                     # your name links here (calendar + footer)
+name = "asliceoftom"                 # shown top-right on the calendar
+made_by_url = "https://asliceoftom.com" # your name links here (calendar + footer)
 made_with = ""                       # optional, after your name in the footer
 title_top = "30 Maps"                # big headline, line 1
 title_bottom = "30 Days"             # big headline, line 2 (highlighted)
@@ -15,10 +15,12 @@ challenge_url = "https://30daymapchallenge.com/"
 
 # The site's own web address, once it has one (e.g. "https://example.com/maps").
 # Used so links shared on social media show the map's preview image.
-site_url = ""
+site_url = "https://asliceoftom.com/projects/map-challenge-2026"
 
 # Links shown in the footer. Leave the url empty to hide one.
 links = [
+  { label = "Website", url = "https://asliceoftom.com" },
+  { label = "GitHub", url = "https://github.com/alittlesliceoftom" }
 ]
 
 # The template this site is built from: it's credited in the footer.

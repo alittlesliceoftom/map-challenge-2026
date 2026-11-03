@@ -40,23 +40,22 @@ MIDDLE = "#e9e3d6"  # the neutral middle of the diverging ramp
 # ---------------------------------------------------------------------------
 # Categorical: "which one" (types, groups, names). Fixed order.
 # ---------------------------------------------------------------------------
-# >>> YOUR SIX COLOURS: Okabe–Ito, the classic colourblind-safe set (Okabe & Ito, 2008)
+# >>> YOUR SIX COLOURS: Tol Vibrant, punchy and colourblind-safe (Paul Tol)
 # (setup_challenge.py rewrites everything from here down to the <<< line.
 #  You can also edit the colours by hand; just keep the >>> and <<< lines.)
-# YELLOW is very light on paper: use it for filled shapes with an INK
-# outline (points, polygons), not for thin lines or text.
-ORANGE       = "#e69f00"
-SKY_BLUE     = "#56b4e9"
-BLUISH_GREEN = "#009e73"
-YELLOW       = "#f0e442"
-BLUE         = "#0072b2"
-VERMILLION   = "#d55e00"
+# CYAN is light: give it an INK outline.
+ORANGE  = "#ee7733"
+BLUE    = "#0077bb"
+CYAN    = "#33bbee"
+MAGENTA = "#ee3377"
+RED     = "#cc3311"
+TEAL    = "#009988"
 
-CATEGORICAL = [ORANGE, SKY_BLUE, BLUISH_GREEN, YELLOW, BLUE, VERMILLION]
-CATEGORICAL_NAMES = ["orange", "sky-blue", "bluish-green", "yellow", "blue", "vermillion"]
+CATEGORICAL = [ORANGE, BLUE, CYAN, MAGENTA, RED, TEAL]
+CATEGORICAL_NAMES = ["orange", "blue", "cyan", "magenta", "red", "teal"]
 
-HIGHLIGHT = YELLOW   # behind the headline's 2nd line, under your name
-ALERT = VERMILLION   # the "missing" flags on day pages
+HIGHLIGHT = CYAN   # behind the headline's 2nd line, under your name
+ALERT = RED   # the "missing" flags on day pages
 # <<< YOUR SIX COLOURS
 
 # ---------------------------------------------------------------------------

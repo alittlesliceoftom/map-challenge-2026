@@ -1,9 +1,7 @@
 # 30 Maps, 30 Days
 
 <!-- about -->
-A ready-made website for the [#30DayMapChallenge](https://30daymapchallenge.com/): a
-calendar of the 30 daily themes, where each finished day opens to your interactive map,
-why you made it, and where the data comes from. Everything is Python.
+asliceoftom's [#30DayMapChallenge](https://30daymapchallenge.com/) 2026 portfolio: a calendar of the 30 daily themes, where each finished day opens to an interactive map, why it was made, and where the data comes from. Everything is Python. Live at <https://asliceoftom.com/projects/map-challenge-2026>.
 <!-- /about -->
 
 ## Getting started (once)
