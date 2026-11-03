@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Day {{ day.number }}: {{ day.theme }}{% if day.title %} · {{ day.title }}{% endif %} · {{ s.name }}{% endblock %}
+{% block description %}#30DayMapChallenge day {{ day.number }} ({{ day.theme }}){% if day.title %}: {{ day.title }}{% endif %}{% endblock %}
+{% block meta %}
+  <meta property="og:title" content="Day {{ day.number }}: {{ day.theme }}{% if day.title %} · {{ day.title }}{% endif %}">
+  <meta property="og:description" content="#30DayMapChallenge {{ s.year }} by {{ s.name }}">
+  {% if day.thumb and s.site_url %}<meta property="og:image" content="{{ s.site_url.rstrip('/') }}/days/{{ day.slug }}/{{ day.thumb }}">{% endif %}
+{% endblock %}
+{% block body %}
+<main class="wrap day" style="--day: {{ day.colour }}; --on-day: {{ day.text_colour }}">
+  <nav class="topnav">
+    <a href="../../index.html">← All 30 maps</a>
+    <span class="pn">
+      {% if prev %}<a href="../{{ prev.slug }}/index.html">← <b>{{ prev.slug }}</b> {{ prev.theme }}</a>{% endif %}
+      {% if next %}<a href="../{{ next.slug }}/index.html"><b>{{ next.slug }}</b> {{ next.theme }} →</a>{% endif %}
+    </span>
+  </nav>
+
+  <header class="dayhead">
+    <div class="daynum">{{ day.slug }}</div>
+    <h1>{{ day.theme }}</h1>
+  </header>
+  <div class="daysub">
+    {% if day.title %}<span class="title">{{ day.title }}</span>{% endif %}
+    <time datetime="{{ day.date.isoformat() }}">{{ day.date_label }}</time>
+  </div>
+  {% if day.prompt %}<p class="prompt"><a href="{{ s.challenge_url }}" target="_blank" rel="noopener">#30DayMapChallenge prompt: </a> {{ day.prompt }}</p>{% endif %}
+
+  <figure class="mapframe">
+    {% if day.is_image %}
+      <img src="{{ day.map_file.name }}" alt="Map for day {{ day.number }}: {{ day.title or day.theme }}">
+    {% else %}
+      <iframe src="map.html" title="Interactive map: {{ day.title or day.theme }}" allowfullscreen></iframe>
+    {% endif %}
+  </figure>
+  <p class="maplinks"><a href="{{ day.map_file.name }}" target="_blank" rel="noopener">⤢ Open the map full screen</a></p>
+
+  <section class="why">
+    <h2 class="label">Why this map</h2>
+    {% if day.notes_html %}{{ day.notes_html | safe }}
+    {% else %}<p class="missing-block">⚠ No notes yet: write your reasoning in notes.md</p>{% endif %}
+  </section>
+
+  <section class="sources">
+    <h2 class="label">Data sources</h2>
+    {% if day.sources %}
+    <div class="srcgrid">
+      {% for src in day.sources %}
+      <article class="src">
+        <h3>{% if src.url %}<a href="{{ src.url }}" target="_blank" rel="noopener">{{ src.name or "Unnamed source" }} ↗</a>{% else %}{{ src.name or "Unnamed source" }}{% endif %}</h3>
+        <dl>
+          {% for key, label in fields.items() if key != "name" %}
+            {% if key != "url" or not src.url %}
+            <dt>{{ label }}</dt>
+            <dd>{% if src[key] %}{{ src[key] }}{% else %}<span class="missing">⚠ missing: add "{{ key }}" in sources.toml</span>{% endif %}</dd>
+            {% endif %}
+          {% endfor %}
+        </dl>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}<p class="missing-block">⚠ No data sources yet: add them to sources.toml</p>{% endif %}
+  </section>
+
+  <section class="how">
+    <h2 class="label">How it was made</h2>
+    <div class="tools">{% for tool in day.tools %}<span>{{ tool }}</span>{% endfor %}</div>
+    {% if day.code %}
+    <details class="code">
+      <summary>See the code (map.py)</summary>
+      <pre><code>{{ day.code }}</code></pre>
+    </details>
+    {% endif %}
+  </section>
+
+  <nav class="pnext">
+    {% if prev %}<a href="../{{ prev.slug }}/index.html"><small>← Previous</small>{{ prev.slug }} {{ prev.theme }}</a>{% else %}<span class="off"><small>← Previous</small>Start</span>{% endif %}
+    {% if next %}<a href="../{{ next.slug }}/index.html"><small>Next →</small>{{ next.slug }} {{ next.theme }}</a>{% else %}<span class="off"><small>Next →</small>Coming soon</span>{% endif %}
+  </nav>
+</main>
+{% endblock %}

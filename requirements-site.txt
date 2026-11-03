@@ -1,0 +1,4 @@
+# Just what build.py needs to turn days/ into the website (used by Vercel).
+# Your maps are made on your own computer, so the mapping libraries aren't needed here.
+jinja2>=3.1
+markdown>=3.5

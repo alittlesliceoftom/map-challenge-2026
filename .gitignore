@@ -1,0 +1,21 @@
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+
+# Built website (rebuilt by `python build.py`)
+site/
+
+# Downloaded data can be large; sources.toml says where to get it again
+days/*/data/
+
+# Design mockups from planning
+.superpowers/
+
+.DS_Store
+
+# Vercel build environment
+.venv-build/
+.vercel/
+.claude/

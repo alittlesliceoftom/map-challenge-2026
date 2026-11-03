@@ -1,0 +1,152 @@
+# The 30 daily themes of the #30DayMapChallenge 2026 (https://30daymapchallenge.com/)
+# Copied from the official site. Day 18 (NULL) has no description there.
+
+[[day]]
+day = 1
+theme = "Points"
+prompt = "A map challenge classic. Map with points."
+
+[[day]]
+day = 2
+theme = "Lines"
+prompt = "A map challenge classic. Map with lines."
+
+[[day]]
+day = 3
+theme = "Polygons"
+prompt = "A map challenge classic. Map with polygons."
+
+[[day]]
+day = 4
+theme = "Clusters"
+prompt = "Clusters of something. Hotspots, groups, things that gather together."
+
+[[day]]
+day = 5
+theme = "Senses: Sight"
+prompt = "How do you see something? Maybe map a viewshed?"
+
+[[day]]
+day = 6
+theme = "Vintage"
+prompt = "Spin up your time machine and do a map which looks like a historical map, or maybe the theme itself should be vintage."
+
+[[day]]
+day = 7
+theme = "10 minute map"
+prompt = "You have no more than 10 minutes to complete this map."
+
+[[day]]
+day = 8
+theme = "Utopia"
+prompt = "A map of something which could be."
+
+[[day]]
+day = 9
+theme = "Urban-rural"
+prompt = "Urban or rural. Cities and countryside."
+
+[[day]]
+day = 10
+theme = "Prompting only"
+prompt = "For this map, make AI work for its money and produce something from start to finish in a chat window or on the command line."
+
+[[day]]
+day = 11
+theme = "Senses: Sound"
+prompt = "How do you hear something? How do you map a soundscape? Noise pollution mapped?"
+
+[[day]]
+day = 12
+theme = "Power"
+prompt = "Power as in nuclear power? Or physical power or influence? Power grid on a map? Read this the way you want, like every other prompt."
+
+[[day]]
+day = 13
+theme = "Interactions"
+prompt = "Interactions between things, or maybe the result would be an interactive map?"
+
+[[day]]
+day = 14
+theme = "Borgesian map"
+prompt = "A map so detailed it becomes the territory. Inspired by Borges' On Exactitude in Science."
+
+[[day]]
+day = 15
+theme = "Inside out"
+prompt = "Inside out, upside down. Something on this map is not quite right."
+
+[[day]]
+day = 16
+theme = "Collaborative map"
+prompt = "Do a map with a friend, colleague or a stranger. AI doesn't count as a friend :)"
+
+[[day]]
+day = 17
+theme = "Light & dark"
+prompt = "Play with visual effects. What can you map with just light and shadows?"
+
+[[day]]
+day = 18
+theme = "NULL"
+prompt = ""
+
+[[day]]
+day = 19
+theme = "Senses: Smell"
+prompt = "How do you map things which your nose can sense? What does a smelly map look like?"
+
+[[day]]
+day = 20
+theme = "Hexagons"
+prompt = "Hexagons, the good old bestagons."
+
+[[day]]
+day = 21
+theme = "OpenStreetMap"
+prompt = "The awesome data source for mapping. You can also use this day to edit OSM."
+
+[[day]]
+day = 22
+theme = "Projections"
+prompt = "The different ways of representing a globe on a flat surface. What does your favourite map projection say about you?"
+
+[[day]]
+day = 23
+theme = "Senses: Taste"
+prompt = "Food, drink or something else which you can taste."
+
+[[day]]
+day = 24
+theme = "Network"
+prompt = "Route network, transit network, human network or something completely different."
+
+[[day]]
+day = 25
+theme = "Is this a map?"
+prompt = "Stretch the limits of maps and blend your map with an artwork or some creative data visualization. When does something become a map and when does it stop being one?"
+
+[[day]]
+day = 26
+theme = "Water"
+prompt = "About 71% of the Earth's surface. That wet thing, you know?"
+
+[[day]]
+day = 27
+theme = "New tool"
+prompt = "The challenge has always been about learning things. Try out a new tool in your mapmaking workflow."
+
+[[day]]
+day = 28
+theme = "Senses: Feeling"
+prompt = "The most abstract of the senses series. How would you map a feeling?"
+
+[[day]]
+day = 29
+theme = "Raster"
+prompt = "Do something cool with pixels."
+
+[[day]]
+day = 30
+theme = "Pen & paper"
+prompt = "Time to wrap up the challenge by closing your laptop for a while and going back to basics. Do an analogue map with pen and paper."

@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- GENERATED FILE: build.py deletes and rewrites site/ on every run, so edits here are lost.
+     Edit instead:  templates/index.html (calendar) · templates/day.html (day pages)
+                    templates/base.html (head + footer) · static/style.css (styling)
+                    site.toml (name, headline, intro, links) · mapkit/palette.py (colours) -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %}</title>
+  <meta name="description" content="{% block description %}{{ s.intro }}{% endblock %}">
+  {% block meta %}{% endblock %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ root }}assets/palette.css">
+  <link rel="stylesheet" href="{{ root }}assets/style.css">
+</head>
+<body>
+{% block body %}{% endblock %}
+<footer class="wrap">
+  <div class="site-footer">
+    <span><a href="{{ s.challenge_url }}" target="_blank" rel="noopener">#30DayMapChallenge</a> · November {{ s.year }}</span>
+    <span>Made in Python by {% if s.made_by_url %}<a href="{{ s.made_by_url }}" target="_blank" rel="noopener">{{ s.name }}</a>{% else %}{{ s.name }}{% endif %}{% if s.made_with %} {{ s.made_with }}{% endif %}{% for link in s.links if link.url %} · <a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }}</a>{% endfor %}</span>
+    {% if s.template %}
+    <span class="template-note">Template by {% if s.template.url %}<a href="{{ s.template.url }}" target="_blank" rel="noopener">{{ s.template.by }}</a>{% else %}{{ s.template.by }}{% endif %}{% if s.template.repo %} · <a href="{{ s.template.repo }}" target="_blank" rel="noopener">Make your own challenge site</a>{% endif %}</span>
+    {% elif s.template_repo %}
+    <span class="template-note">Doing the challenge too? <a href="{{ s.template_repo }}" target="_blank" rel="noopener">Use this template for your own →</a></span>
+    {% endif %}
+  </div>
+</footer>
+<script src="{{ root }}assets/site.js"></script>
+</body>
+</html>

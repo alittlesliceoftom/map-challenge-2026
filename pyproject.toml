@@ -1,0 +1,17 @@
+# This file lets every map script do `from mapkit import palette`,
+# no matter which folder it lives in. (Installed with `pip install -e .`)
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mapkit"
+version = "0.1.0"
+description = "Shared colours and helpers for my #30DayMapChallenge maps"
+requires-python = ">=3.11"
+
+[tool.setuptools]
+packages = ["mapkit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

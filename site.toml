@@ -1,0 +1,29 @@
+# Settings for the website. Run `python3 setup_challenge.py` to fill these in
+# with a few questions, or edit them by hand. Then run `python build.py`.
+
+name = "Your Name"                   # shown top-right on the calendar
+made_by_url = ""                     # your name links here (calendar + footer)
+made_with = ""                       # optional, after your name in the footer
+title_top = "30 Maps"                # big headline, line 1
+title_bottom = "30 Days"             # big headline, line 2 (highlighted)
+intro = "#30DayMapChallenge, November 2026. One map a day, built in Python."
+
+year = 2026
+month = 11                           # November
+
+challenge_url = "https://30daymapchallenge.com/"
+
+# The site's own web address, once it has one (e.g. "https://example.com/maps").
+# Used so links shared on social media show the map's preview image.
+site_url = ""
+
+# Links shown in the footer. Leave the url empty to hide one.
+links = [
+]
+
+# The template this site is built from: it's credited in the footer.
+# Please keep it. Thank you!
+[template]
+by = "Edita Chavez"
+url = "https://editachavez.com/"
+repo = "https://github.com/edichavezz/map-challenge-template"

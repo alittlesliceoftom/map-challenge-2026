@@ -1,0 +1,12 @@
+# The website builder
+jinja2>=3.1
+markdown>=3.5
+
+# Making maps
+folium>=0.17        # interactive web maps (Leaflet), no account needed
+geopandas>=1.0      # geographic data tables: read/clean/join shapes
+matplotlib>=3.8     # static maps and charts
+pandas>=2.2
+
+# Checking the builder works
+pytest>=8
