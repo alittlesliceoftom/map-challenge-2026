@@ -25,7 +25,17 @@ from render import render
 HERE = Path(__file__).parent
 N_WALKERS, N_CYCLISTS, N_BUSES_PER_PULSE = 1200, 90, 6
 
-TOUR: list[dict] = []  # filled in Task 6
+# The intro fly-through: river -> bridge -> Lancaster Place -> Strand east -> back west
+# -> Covent Garden piazza -> overview. About 40 s.
+TOUR: list[dict] = [
+    {"center": [-0.11600, 51.50700], "zoom": 15.4, "pitch": 50, "bearing": -25, "duration_ms": 3000},
+    {"center": [-0.11635, 51.50795], "zoom": 18.3, "pitch": 62, "bearing": -30, "duration_ms": 7000},
+    {"center": [-0.11895, 51.51080], "zoom": 18.0, "pitch": 60, "bearing": -35, "duration_ms": 6000},
+    {"center": [-0.11660, 51.51240], "zoom": 17.8, "pitch": 60, "bearing": 60, "duration_ms": 7000},
+    {"center": [-0.12030, 51.51200], "zoom": 17.6, "pitch": 58, "bearing": -60, "duration_ms": 7000},
+    {"center": [-0.12220, 51.51180], "zoom": 18.1, "pitch": 55, "bearing": -100, "duration_ms": 5000},
+    {"center": [-0.11800, 51.50960], "zoom": 15.9, "pitch": 55, "bearing": -25, "duration_ms": 6000},
+]
 
 
 def _geojson(geom) -> dict:
