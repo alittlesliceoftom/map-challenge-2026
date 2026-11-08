@@ -24,11 +24,15 @@ DRIFT = 0.35           # max sideways metres per metre forward (a gentle diagona
 MIN_TRIP_M = 150.0
 
 
+TRAIL_S = 40.0  # longest trail drawn on the page (template.html trailLength)
+
+
 @dataclass
 class Trip:
     kind: Literal["walk", "bike", "bus"]
     path: list[tuple[float, float]]
     timestamps: list[float]
+    id: int = -1  # shared by a trip and its wrapped copies
 
 
 def _timed(kind, pts: np.ndarray, speed: float, start: float) -> Trip:
@@ -168,12 +172,14 @@ def bus_trips(c: Corridor, n_per_pulse: int, rng: np.random.Generator) -> list[T
 
 
 def wrap_loop(trips: list[Trip], loop_s: float = LOOP_S) -> list[Trip]:
-    """Copies shifted back by whole loops, so trips running past the end reappear at t=0."""
-    out = list(trips)
-    for t in trips:
+    """Copies shifted back by whole loops, so trips (and their fading trails) that run
+    past the end reappear at t=0. Each copy keeps its original's id."""
+    out = []
+    for i, t in enumerate(trips):
+        out.append(Trip(t.kind, t.path, t.timestamps, i))
         k = 1
-        while t.timestamps[-1] - k * loop_s > 0:
-            out.append(Trip(t.kind, t.path, [x - k * loop_s for x in t.timestamps]))
+        while t.timestamps[-1] - k * loop_s > -TRAIL_S:
+            out.append(Trip(t.kind, t.path, [x - k * loop_s for x in t.timestamps], i))
             k += 1
     return out
 
@@ -182,7 +188,7 @@ _KIND = {"walk": "w", "bike": "b", "bus": "u"}
 
 
 def to_deck_json(trips: list[Trip], crs: str = "EPSG:27700") -> list[dict]:
-    """Compact rows for deck.gl: k = kind, p = [[lon, lat]], t = seconds."""
+    """Compact rows for deck.gl: i = trip id, k = kind, p = [[lon, lat]], t = seconds."""
     from pyproj import Transformer
 
     to_wgs = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
@@ -191,6 +197,7 @@ def to_deck_json(trips: list[Trip], crs: str = "EPSG:27700") -> list[dict]:
         xs, ys = zip(*t.path)
         lon, lat = to_wgs.transform(xs, ys)
         rows.append({
+            "i": t.id,
             "k": _KIND[t.kind],
             "p": [[round(a, 6), round(b, 6)] for a, b in zip(lon, lat)],
             "t": [round(float(x), 1) for x in t.timestamps],

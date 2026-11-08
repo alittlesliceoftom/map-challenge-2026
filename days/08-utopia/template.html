@@ -55,7 +55,8 @@ const LOOP_S = EXTRAS.loop_s || 420;
 const SPEED = 6;                 // simulated seconds per real second
 const COLORS = { w: [238, 119, 51], b: [51, 187, 238], u: [204, 51, 17] };
 const MOBILE = !new URLSearchParams(location.search).has("desktop") && matchMedia("(max-width: 700px), (hover: none) and (pointer: coarse)").matches;
-const trips = MOBILE ? TRIPS.filter((_, i) => i % 3 === 0) : TRIPS;
+// thin by trip id, so wrapped copies stay with their originals
+const trips = MOBILE ? TRIPS.filter(d => d.i % 3 === 0) : TRIPS;
 const byKind = { w: [], b: [], u: [] };
 trips.forEach(d => byKind[d.k].push(d));
 

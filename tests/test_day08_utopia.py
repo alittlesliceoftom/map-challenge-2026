@@ -175,7 +175,7 @@ def test_to_deck_json_wgs84_and_rounding(corridor):
     from agents import to_deck_json, walker_trips
     rows = to_deck_json(walker_trips(corridor, 5, np.random.default_rng(10)))
     for r in rows:
-        assert set(r) == {"k", "p", "t"} and r["k"] == "w"
+        assert set(r) == {"i", "k", "p", "t"} and r["k"] == "w"
         for lon, lat in r["p"]:
             assert -0.13 < lon < -0.10 and 51.50 < lat < 51.52
             assert round(lon, 6) == lon and round(lat, 6) == lat
@@ -196,3 +196,27 @@ def test_render_self_contained(tmp_path):
     assert "@latest" not in html
     assert re.search(r"deck\.gl@\d+\.\d+\.\d+", html)
     assert re.search(r"maplibre-gl@\d+\.\d+\.\d+", html)
+
+
+# ── Final review fixes: loop seam ───────────────────────────────────────────
+def test_wrap_loop_copies_trails_still_fading_at_the_seam():
+    # a trip that ended 10 s before the loop end still shows a fading tail at
+    # t = LOOP_S; its copy must show the same tail at t = 0
+    from agents import LOOP_S, TRAIL_S, Trip, wrap_loop
+    ending = Trip("walk", [(0, 0), (10, 0)], [LOOP_S - 60, LOOP_S - 10])
+    out = wrap_loop([ending])
+    assert any(t.timestamps[-1] == -10 for t in out)
+    stale = Trip("walk", [(0, 0), (10, 0)], [10, LOOP_S - TRAIL_S - 5])
+    assert len(wrap_loop([stale])) == 1
+
+
+def test_mobile_subset_is_closed_under_wrapping():
+    # the page thins trips by id % 3 on phones: a trip and its wrapped copies
+    # must share an id so they are kept or dropped together
+    from agents import LOOP_S, Trip, to_deck_json, wrap_loop
+    trips = [Trip("walk", [(530800.0 + i, 180500.0), (530810.0 + i, 180500.0)],
+                  [LOOP_S - 5, LOOP_S + 600]) for i in range(7)]
+    rows = to_deck_json(wrap_loop(trips))
+    ids = [r["i"] for r in rows]
+    assert sorted(set(ids)) == list(range(7))
+    assert all(ids.count(i) == len(rows) // 7 for i in range(7))
