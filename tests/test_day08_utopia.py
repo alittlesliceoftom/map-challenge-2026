@@ -220,3 +220,28 @@ def test_mobile_subset_is_closed_under_wrapping():
     ids = [r["i"] for r in rows]
     assert sorted(set(ids)) == list(range(7))
     assert all(ids.count(i) == len(rows) // 7 for i in range(7))
+
+
+# ── The shared lane never doubles back on itself ────────────────────────────
+def test_lane_route_does_not_double_back():
+    try:
+        c = load_corridor()
+    except Exception as e:
+        pytest.skip(f"corridor unavailable: {e}")
+    route = c.routes[c.lane_routes[0]]
+    pts = np.array([route.interpolate(s).coords[0] for s in np.arange(0, route.length, 10.0)])
+    chords = pts[2:] - pts[:-2]  # 20 m chords
+    unit = chords / np.linalg.norm(chords, axis=1, keepdims=True)
+    turns = (unit[:-2] * unit[2:]).sum(axis=1)  # cos of the turn over ~20 m
+    assert turns.min() > -0.3, f"lane turns back on itself (cos {turns.min():.2f})"
+
+
+def test_drop_loops_cuts_out_and_back_spurs():
+    from geometry import drop_loops
+    # north 100 m, then a 60 m detour east and back, then north again
+    spur = LineString([(0, 0), (0, 100), (60, 100), (2, 102), (0, 200)])
+    out = drop_loops(spur)
+    assert out.length < 215  # the 120 m detour is gone
+    assert out.coords[0] == (0, 0) and out.coords[-1] == (0, 200)
+    straight = LineString([(0, 0), (0, 100), (50, 150)])
+    assert drop_loops(straight).equals(straight)

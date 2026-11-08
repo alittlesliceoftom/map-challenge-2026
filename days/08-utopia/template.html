@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/deck.gl@9.2.11/dist.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/deck.gl@9.3.11/dist.min.js"></script>
 <style>
   :root { --paper: #f1ece2; --ink: #171412; --muted: #5a5248; }
   html, body { margin: 0; height: 100%; background: var(--paper); }
@@ -27,6 +27,9 @@
            border: 1.5px solid var(--ink); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
   button:hover { background: var(--ink); color: var(--paper); }
   #clock { font-variant-numeric: tabular-nums; }
+  #speed { display: flex; align-items: center; gap: 6px; }
+  #speed input { width: 110px; accent-color: var(--ink); }
+  #speed output { font-variant-numeric: tabular-nums; min-width: 3.2em; }
   .maplibregl-ctrl-attrib { font-size: 10px; }
   @media (max-width: 700px) { #title { max-width: calc(100% - 150px); } #title p { display: none; } #title h1 { font-size: 15px; } }
 </style>
@@ -46,13 +49,19 @@
   <span style="--c:#33bbee">Bikes</span>
   <span style="--c:#cc3311">Buses</span>
   <span id="clock"></span>
+  <label id="speed">Speed <input id="speed-input" type="range" min="0.5" max="10" step="0.5" value="3"><output id="speed-out">3x</output></label>
 </div>
 <script>
 const TRIPS = /*__TRIPS__*/null;
 const TOUR = /*__TOUR__*/null;
 const EXTRAS = /*__EXTRAS__*/null;
 const LOOP_S = EXTRAS.loop_s || 420;
-const SPEED = 6;                 // simulated seconds per real second
+// Simulated seconds per real second, set by the speed slider.
+// GAIT: walk-cycle playback per unit of speed. CesiumMan's cycle is 2 s for two steps;
+// drawn at 2x (about 3 m tall) a step is ~1.2 m, so a 1.3 m/s walk is ~1.8 s per cycle.
+// Needs deck.gl >= 9.3: 9.2 ignored glTF skins, so the figures glided in a T-pose.
+let speed = 3;
+const GAIT = 1.1;
 const COLORS = { w: [238, 119, 51], b: [51, 187, 238], u: [204, 51, 17] };
 const MOBILE = !new URLSearchParams(location.search).has("desktop") && matchMedia("(max-width: 700px), (hover: none) and (pointer: coarse)").matches;
 // thin by trip id, so wrapped copies stay with their originals
@@ -60,8 +69,16 @@ const trips = MOBILE ? TRIPS.filter(d => d.i % 3 === 0) : TRIPS;
 const byKind = { w: [], b: [], u: [] };
 trips.forEach(d => byKind[d.k].push(d));
 
-const t0 = performance.now();
-function currentTime() { return ((performance.now() - t0) / 1000 * SPEED) % LOOP_S; }
+// The clock accumulates, so changing speed never makes anyone jump.
+let simTime = 0, lastTick = performance.now();
+function tick() {
+  const now = performance.now();
+  simTime = (simTime + (now - lastTick) / 1000 * speed) % LOOP_S;
+  lastTick = now;
+}
+function currentTime() { return simTime; }
+const speedInput = document.getElementById("speed-input"), speedOut = document.getElementById("speed-out");
+speedInput.addEventListener("input", () => { speed = +speedInput.value; speedOut.textContent = speed + "x"; });
 
 const DEEP_LINK = /^#\d/.test(location.hash);  // a shared view skips the intro tour
 const map = new maplibregl.Map({
@@ -116,7 +133,7 @@ function positionsAt(t, kind) {
     const a = d.p[lo], b = d.p[hi];
     const dx = (b[0] - a[0]) * M_PER_DEG_LON, dy = (b[1] - a[1]) * M_PER_DEG_LAT;
     out.push({ pos: [a[0] + f * (b[0] - a[0]), a[1] + f * (b[1] - a[1])],
-               heading: Math.atan2(dx, dy) * 180 / Math.PI, k: kind });   // compass bearing
+               heading: Math.atan2(dx, dy) * 180 / Math.PI, k: kind, i: d.i });   // compass bearing
   }
   return out;
 }
@@ -154,14 +171,25 @@ function lightLayers(t) {
   ];
 }
 
+// Legs keep pace with the clock: cached so deck only re-applies it when speed changes.
+const gaitCache = {};
+function gaitFor(group) {
+  const key = group + ":" + speed;
+  return gaitCache[key] ||= { "*": { speed: speed * GAIT, startTime: group * 700 } };
+}
+
 function figureLayers(t) {
   const walkers = nearestToCentre(positionsAt(t, "w"), MAX_FIGURES);
   const bikes = positionsAt(t, "b"), buses = positionsAt(t, "u");
+  // Every instance in a ScenegraphLayer shares one pose, so walkers are split into
+  // three groups a third of a cycle apart: neighbours step out of time, not in lockstep.
+  const people = [0, 1, 2].map(g => new deck.ScenegraphLayer({
+    id: "people-" + g, data: walkers.filter(d => d.i % 3 === g), scenegraph: MODEL,
+    getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: 2,
+    _animations: gaitFor(g), _lighting: "pbr", getColor: [255, 255, 255],
+    onError: () => { modelFailed = true; return true; } }));
   return [
-    new deck.ScenegraphLayer({ id: "people", data: walkers, scenegraph: MODEL,
-      getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: 2,
-      _animations: { "*": { speed: 1.2 } }, _lighting: "pbr", getColor: [255, 255, 255],
-      onError: () => { modelFailed = true; return true; } }),
+    ...people,
     new deck.ScatterplotLayer({ id: "bikes", data: bikes, getPosition: d => d.pos, getRadius: 1.1,
       radiusMinPixels: 3, getFillColor: COLORS.b, stroked: true, getLineColor: [23, 20, 18],
       lineWidthUnits: "pixels", getLineWidth: 1 }),
@@ -187,6 +215,7 @@ function clockText(t) {
 
 let last = 0;
 function frame() {
+  tick();
   const t = currentTime();
   overlay.setProps({ layers: buildLayers(t, map.getZoom()) });
   if (performance.now() - last > 500) { document.getElementById("clock").textContent = clockText(t); last = performance.now(); }

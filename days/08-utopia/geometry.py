@@ -28,8 +28,7 @@ ROUTES: dict[str, list[tuple[float, float]]] = {
     # Strand east to St Mary le Strand / Aldwych (car-free since 2022)
     "strand_east": [(-0.11900, 51.51110), (-0.11660, 51.51245), (-0.11480, 51.51300)],
     # The one shared bus + bike lane: bridge, Lancaster Place, Aldwych
-    "bus_lane": [(-0.11388, 51.50549), (-0.11620, 51.50790), (-0.11880, 51.51100),
-                 (-0.11780, 51.51320)],
+    "bus_lane": [(-0.11414, 51.50556), (-0.11620, 51.50790), (-0.11780, 51.51320)],
 }
 LANE_ROUTES: list[str] = ["bus_lane"]
 WALK_ROUTES: list[str] = ["bridge_spine", "strand_west", "strand_east"]
@@ -95,6 +94,24 @@ def _fetch(tags: dict, path: Path) -> gpd.GeoDataFrame:
     return gdf
 
 
+def drop_loops(line: LineString, near: float = 15.0, step: float = 5.0) -> LineString:
+    """Cut out-and-back spurs: where the path returns within `near` metres of an earlier
+    point after a much longer detour, jump straight there."""
+    import numpy as np
+    pts = np.array([line.interpolate(s).coords[0] for s in np.arange(0, line.length, step)]
+                   + [line.coords[-1]])
+    keep, i = [0], 0
+    while i < len(pts) - 1:
+        d = np.hypot(*(pts[i + 1:] - pts[i]).T)
+        arc = step * np.arange(1, len(pts) - i)
+        loops = np.where((d < near) & (arc > 3 * d + 30))[0]
+        i = i + 1 + (loops[-1] if len(loops) else 0)
+        keep.append(i)
+    if len(keep) == len(pts):
+        return line
+    return LineString(pts[keep]).simplify(0.5)
+
+
 def _route_line(graph, anchors: list[tuple[float, float]]) -> LineString:
     """Street path through the anchors, preferring main streets, in CRS metres."""
     nodes = [ox.distance.nearest_nodes(graph, x, y) for x, y in anchors]
@@ -125,7 +142,7 @@ def _graph():
         hw = d.get("highway")
         hw = hw[0] if isinstance(hw, list) else hw
         d["cost"] = float(d["length"]) * (1.0 if hw in MAJOR else 2.5)
-        d["road"] = hw in ROAD
+        d["road"] = hw in ROAD and d.get("tunnel") in (None, "no")  # not the Strand underpass
     return g
 
 
@@ -141,6 +158,6 @@ def load_corridor() -> Corridor:
     for name, anchors in ROUTES.items():
         pts = gpd.GeoSeries([Point(p) for p in anchors], crs="EPSG:4326").to_crs(CRS)
         g = roads if name in LANE_ROUTES else graph
-        routes[name] = _route_line(g, [(p.x, p.y) for p in pts])
+        routes[name] = drop_loops(_route_line(g, [(p.x, p.y) for p in pts]))
     walkable = build_walkable(streets, buildings)
     return Corridor(walkable=walkable, lane=build_lane(routes, LANE_ROUTES), routes=routes)
