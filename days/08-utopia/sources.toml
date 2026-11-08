@@ -1,0 +1,34 @@
+# Where does the data come from? One [[source]] block per dataset.
+# Everything here shows on the day page. Empty fields show a red "missing" flag.
+#
+# The test: could a stranger get exactly this data again, and know how far to trust it?
+# (data/ isn't saved in git, so this file is the only record of where it came from.)
+#
+# Before you fill it in:
+#   - Downloaded with a query (Overpass, an API, SQL)? Save the query as a file in
+#     this folder (e.g. query.overpassql), NOT in data/, so it gets saved in git.
+#   - Look inside the file for its own dates and caveats: an Overpass GeoJSON has a
+#     "timestamp" at the top; OSM features often have source=... or fixme=... tags.
+
+[[source]]
+name = ""          # what it's called, e.g. "Street trees"
+url = ""           # a link to THIS data, not to the tool you used. Bad: "https://overpass-turbo.eu/".
+                   # Good: an overpass-turbo Share link to your exact query, the OSM wiki
+                   # page for the tag, or the dataset's own page on the publisher's site.
+from = ""          # who MADE the data (not the tool), spelled the way they spell it,
+                   # e.g. "OpenStreetMap contributors (via the Overpass API)", "City of Chicago"
+what = ""          # what one row/pixel is, how many there are, and what's NOT in it,
+                   # e.g. "12,400 points, one per council-owned tree; trees in private gardens not included"
+time = ""          # two dates: when the data describes, and when you downloaded it.
+                   # e.g. "Trees surveyed 2019–2024; downloaded 5 Nov 2026"
+resolution = ""    # how precise it REALLY is, not how precise it looks. "Exact coordinates" is
+                   # almost never true. e.g. "single points; GPS/aerial-imagery accuracy (~5–10 m)",
+                   # "by county", "30 m pixels". Mention known guesses (fixme / interpolated parts).
+licence = ""       # e.g. "ODbL, © OpenStreetMap contributors", "Public domain", "CC BY 4.0".
+                   # Most licences also want a credit ON the map itself, not just on this page.
+
+# Using a second dataset? Copy the whole block above (from [[source]] down).
+# Count the background map too if it carries information you rely on.
+#
+# Quoting something in notes.md? Open it and read it first, then quote what it actually
+# says (who wrote it, when). Don't paraphrase it from memory.
