@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Waterloo Bridge, given back</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/deck.gl@9.2.11/dist.min.js"></script>
+<style>
+  :root { --paper: #f1ece2; --ink: #171412; --muted: #5a5248; }
+  html, body { margin: 0; height: 100%; background: var(--paper); }
+  body { font-family: "Bricolage Grotesque", system-ui, sans-serif; color: var(--ink); overflow: hidden; }
+  #map { position: absolute; inset: 0; }
+  .panel { position: absolute; z-index: 2; background: var(--paper); border: 1.5px solid var(--ink);
+           border-radius: 10px; padding: 8px 12px; font-size: 13px; line-height: 1.35; }
+  #title { top: 12px; left: 12px; max-width: min(320px, calc(100% - 48px)); }
+  #title h1 { font-size: 17px; margin: 0 0 2px; font-weight: 800; }
+  #title p { margin: 0; color: var(--muted); }
+  #legend { bottom: 28px; left: 12px; display: flex; gap: 12px; flex-wrap: wrap; }
+  #legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+                         margin-right: 5px; background: var(--c); border: 1px solid var(--ink); vertical-align: -1px; }
+  #controls { top: 12px; right: 12px; display: flex; gap: 8px; padding: 0; border: none; background: none; }
+  button { font: 600 13px "Bricolage Grotesque", system-ui, sans-serif; background: var(--paper); color: var(--ink);
+           border: 1.5px solid var(--ink); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+  button:hover { background: var(--ink); color: var(--paper); }
+  #clock { font-variant-numeric: tabular-nums; }
+  .maplibregl-ctrl-attrib { font-size: 10px; }
+  @media (max-width: 700px) { #title p { display: none; } #title h1 { font-size: 15px; } }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="title" class="panel">
+  <h1>Waterloo Bridge, given back</h1>
+  <p>No cars from Waterloo to Covent Garden. People wander across the old road; one signalled lane carries bikes and the occasional bus convoy.</p>
+</div>
+<div id="controls" class="panel">
+  <button id="skip">Skip tour</button>
+  <button id="replay" hidden>Replay tour</button>
+</div>
+<div id="legend" class="panel">
+  <span style="--c:#ee7733">People walking</span>
+  <span style="--c:#33bbee">Bikes</span>
+  <span style="--c:#cc3311">Buses</span>
+  <span id="clock"></span>
+</div>
+<script>
+const TRIPS = /*__TRIPS__*/null;
+const TOUR = /*__TOUR__*/null;
+const EXTRAS = /*__EXTRAS__*/null;
+const LOOP_S = EXTRAS.loop_s || 420;
+const SPEED = 6;                 // simulated seconds per real second
+const COLORS = { w: [238, 119, 51], b: [51, 187, 238], u: [204, 51, 17] };
+const MOBILE = matchMedia("(max-width: 700px), (hover: none) and (pointer: coarse)").matches;
+const trips = MOBILE ? TRIPS.filter((_, i) => i % 3 === 0) : TRIPS;
+const byKind = { w: [], b: [], u: [] };
+trips.forEach(d => byKind[d.k].push(d));
+
+const t0 = performance.now();
+function currentTime() { return ((performance.now() - t0) / 1000 * SPEED) % LOOP_S; }
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: "https://tiles.openfreemap.org/styles/liberty",
+  center: [-0.1172, 51.5083], zoom: 15.5, pitch: 55, bearing: -20,
+  maxPitch: 75, hash: true, attributionControl: { compact: true,
+    customAttribution: "Agents illustrative · © OpenStreetMap contributors · OpenFreeMap" },
+});
+
+const overlay = new deck.MapboxOverlay({ interleaved: true, layers: [] });
+map.addControl(overlay);
+
+// Ground-level layers sit under the 3D buildings and never z-fight with roads.
+const GROUND = { beforeId: "building-3d", parameters: { depthCompare: "always", depthWriteEnabled: false } };
+
+function plazaLayers() {
+  if (!EXTRAS.plaza) return [];
+  return [
+    new deck.GeoJsonLayer({ id: "plaza", data: EXTRAS.plaza, filled: true, stroked: false,
+      getFillColor: [233, 214, 186, 235], ...GROUND }),
+    new deck.GeoJsonLayer({ id: "lane", data: EXTRAS.lane, filled: true, stroked: false,
+      getFillColor: [205, 190, 168, 255], ...GROUND }),
+  ];
+}
+
+function tripsLayer(kind, t, opacity) {
+  return new deck.TripsLayer({
+    id: "trips-" + kind, data: byKind[kind], currentTime: t,
+    getPath: d => d.p, getTimestamps: d => d.t, getColor: COLORS[kind],
+    widthMinPixels: kind === "u" ? 5 : 2.5, capRounded: true, jointRounded: true,
+    trailLength: kind === "u" ? 25 : 40, fadeTrail: true, opacity, ...GROUND,
+  });
+}
+
+function buildLayers(t, zoom) {
+  return [...plazaLayers(), tripsLayer("w", t, 0.9), tripsLayer("b", t, 0.95), tripsLayer("u", t, 1)];
+}
+
+function clockText(t) {
+  const m = Math.floor(t / 60), s = Math.floor(t % 60);
+  return `${m}:${String(s).padStart(2, "0")} of a ${LOOP_S / 60}-minute cycle`;
+}
+
+let last = 0;
+function frame() {
+  const t = currentTime();
+  overlay.setProps({ layers: buildLayers(t, map.getZoom()) });
+  if (performance.now() - last > 500) { document.getElementById("clock").textContent = clockText(t); last = performance.now(); }
+  requestAnimationFrame(frame);
+}
+map.on("load", () => {
+  // a car-free corridor doesn't need road shields or one-way arrows
+  for (const l of map.getStyle().layers) {
+    if (/shield|one_way_arrow/.test(l.id)) map.setLayoutProperty(l.id, "visibility", "none");
+  }
+  requestAnimationFrame(frame);
+});
+</script>
+</body>
+</html>

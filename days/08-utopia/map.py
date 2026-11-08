@@ -2,72 +2,53 @@
 Day 8 · Utopia
 The prompt: A map of something which could be.
 
-What I'm mapping: (write one sentence here once you've decided)
+What I'm mapping: Waterloo Bridge, Lancaster Place and the Strand with the cars gone,
+people wandering from Waterloo station to Covent Garden, one signalled lane for bikes
+and bus convoys.
 
 Run it from the project folder:
     python days/08-utopia/map.py
-It saves map.html next to this file. Then see it on the site with:
-    python build.py --serve
+It saves map.html next to this file (self-contained: the trips are inlined).
 """
 
 from pathlib import Path
 
-import folium
+import geopandas as gpd
+import numpy as np
+from shapely.geometry import mapping
+from shapely.ops import unary_union
 
-from mapkit import palette as P
-from mapkit.folium_style import add_basemap, style_map
+from agents import LOOP_S, PULSES, bus_trips, cyclist_trips, to_deck_json, walker_trips, wrap_loop
+from geometry import CRS, WALK_ROUTES, load_corridor
+from render import render
 
-HERE = Path(__file__).parent      # this day's folder
-DATA = HERE / "data"              # put the data files you download in here
+HERE = Path(__file__).parent
+N_WALKERS, N_CYCLISTS, N_BUSES_PER_PULSE = 1200, 150, 6
 
-
-# ── STEP 1 · An empty map ─────────────────────────────────────────────────
-# This step already works: run the file, then open map.html in your browser.
-# TODO: move the map to your place. `location` is [latitude, longitude]
-#       (in Google Maps, right-click a spot to copy its numbers).
-#       `zoom_start`: 2 = the world, 6 = a country, 12 = a city, 16 = a street.
-m = folium.Map(location=[20, 0], zoom_start=2, tiles=None)
-add_basemap(m, "light")           # background map: also "light-nolabels", "dark", "osm", "mapbox"
-style_map(m)                      # the site's font + ink-outlined buttons
+TOUR: list[dict] = []  # filled in Task 6
 
 
-# ── STEP 2 · Load your data ───────────────────────────────────────────────
-# TODO: download your dataset into the data/ folder, then read it in.
-#   A table with latitude/longitude columns (CSV):  pandas  → pd.read_csv(...)
-#   Shapes (GeoJSON, shapefile, GeoPackage):        geopandas → gpd.read_file(...)
-# Then LOOK at it before you map anything:
-#   how many rows? which columns? what do the first few rows look like?
+def _geojson(geom) -> dict:
+    wgs = gpd.GeoSeries([geom.simplify(0.5)], crs=CRS).to_crs("EPSG:4326")[0]
+    return {"type": "Feature", "properties": {}, "geometry": mapping(wgs)}
 
 
-# ── STEP 3 · Put the data on the map ──────────────────────────────────────
-# TODO: draw your data. Useful folium pieces:
-#   one point:    folium.CircleMarker(location=[lat, lon], radius=...)
-#   one line:     folium.PolyLine(locations=[[lat, lon], [lat, lon], ...])
-#   shapes:       folium.GeoJson(your_geodataframe)
-# Anything you create needs .add_to(m) to appear on the map.
-# Points? Loop over your rows and add one marker per row.
+def main() -> None:
+    rng = np.random.default_rng(8)
+    c = load_corridor()
+    trips = (walker_trips(c, N_WALKERS, rng) + cyclist_trips(c, N_CYCLISTS, rng)
+             + bus_trips(c, N_BUSES_PER_PULSE, rng))
+    reach = unary_union([c.routes[n].buffer(20) for n in WALK_ROUTES + c.lane_routes])
+    extras = {
+        "loop_s": LOOP_S,
+        "pulses": PULSES,
+        "plaza": _geojson(c.walkable.intersection(reach)),
+        "lane": _geojson(c.lane),
+    }
+    out = HERE / "map.html"
+    render(to_deck_json(wrap_loop(trips)), out, tour=TOUR, extras=extras)
+    print(f"Saved {out} ({out.stat().st_size / 1e6:.1f} MB, {len(trips)} trips)")
 
 
-# ── STEP 4 · Colour it with the palette ───────────────────────────────────
-# TODO: pick colours from mapkit.palette (print(P.CATEGORICAL) to see them):
-#   "which one" (types/groups):  P.categorical(n)  — use them in order
-#   "how much" (amounts):        P.ramp("sunrise", n)
-# Give filled shapes a thin outline: color=P.INK, weight=1
-# (and fill_color=..., fill_opacity=... for the inside).
-
-
-# ── STEP 5 · Make it talk: tooltips and popups ────────────────────────────
-# TODO: a tooltip shows on hover, a popup on click.
-#   folium.CircleMarker(..., tooltip="text", popup="text")
-# Show the one or two facts that make someone go "oh!" — not every column.
-
-
-# ── STEP 6 · A title and a legend ─────────────────────────────────────────
-# TODO: from mapkit.folium_style import add_title, add_legend
-#   add_title(m, "Title", "one-line subtitle")
-#   add_legend(m, "What the colours mean", {"label": colour, ...})
-
-
-# ── Save ──────────────────────────────────────────────────────────────────
-m.save(HERE / "map.html")
-print("Saved", HERE / "map.html")
+if __name__ == "__main__":
+    main()

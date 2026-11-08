@@ -89,8 +89,9 @@ def test_walkers_zigzag(corridor):
 
 def test_walkers_mostly_avoid_lane(corridor):
     from agents import walker_trips
-    pts = [Point(p) for t in walker_trips(corridor, 200, np.random.default_rng(3)) for p in t.path]
-    assert sum(corridor.lane.contains(p) for p in pts) / len(pts) < 0.10
+    lines = [LineString(t.path) for t in walker_trips(corridor, 200, np.random.default_rng(3))]
+    in_lane = sum(line.intersection(corridor.lane).length for line in lines)
+    assert in_lane / sum(line.length for line in lines) < 0.10  # share of distance walked
 
 
 def test_walkers_both_directions(corridor):
@@ -179,3 +180,19 @@ def test_to_deck_json_wgs84_and_rounding(corridor):
             assert -0.13 < lon < -0.10 and 51.50 < lat < 51.52
             assert round(lon, 6) == lon and round(lat, 6) == lat
         assert all(round(x, 1) == x for x in r["t"])
+
+
+# ── Task 4: rendering ───────────────────────────────────────────────────────
+import re  # noqa: E402
+
+
+def test_render_self_contained(tmp_path):
+    from render import render
+    render([{"k": "w", "p": [[-0.117, 51.508], [-0.118, 51.509]], "t": [0, 10]}],
+           tmp_path / "m.html", tour=[], extras={"loop_s": 420})
+    html = (tmp_path / "m.html").read_text()
+    assert "/*__TRIPS__*/" not in html and '"k":"w"' in html
+    assert "/*__EXTRAS__*/" not in html and '"loop_s":420' in html
+    assert "@latest" not in html
+    assert re.search(r"deck\.gl@\d+\.\d+\.\d+", html)
+    assert re.search(r"maplibre-gl@\d+\.\d+\.\d+", html)

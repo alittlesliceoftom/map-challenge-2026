@@ -125,6 +125,7 @@ def walker_trips(c: Corridor, n: int, rng: np.random.Generator) -> list[Trip]:
         if len(pts) < 2:
             continue
         path = _inside(c.walkable, _chaikin(np.array(pts)))
+        path = np.array(LineString(path).simplify(0.3).coords)  # keeps the file small
         trips.append(_timed("walk", path, rng.uniform(1.1, 1.5), rng.uniform(0, LOOP_S)))
     return trips
 
