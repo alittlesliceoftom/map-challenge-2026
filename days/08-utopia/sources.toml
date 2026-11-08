@@ -31,7 +31,25 @@ licence = "CC BY 4.0, © 2017 Cesium; the Cesium logo on the texture is a Cesium
 name = "People, bikes and buses (synthetic)"
 url = "https://github.com/alittlesliceoftom/map-challenge-2026/tree/main/days/08-utopia"
 from = "Generated in map.py (agents.py)"
-what = "1,200 walkers, 90 cyclists and 12 buses per 7-minute cycle. Walkers follow the streets but wander across the full width; cyclists and buses share one central lane; buses run as signalled one-way convoys. Illustrative, not counts"
+what = "1,200 walkers, 90 cyclists and 12 buses per 7-minute cycle. Walkers follow the streets but wander across the full width and around the planters; cyclists and buses share one central lane; buses run as signalled one-way convoys. Illustrative, not counts"
 time = "Generated 8 Nov 2026 (random seed 8)"
 resolution = "Imagined: positions are made up to look plausible, not measured"
+licence = "My own; no third-party licence"
+
+[[source]]
+name = "Trees, bushes and flowers on the bridge"
+url = "https://quaternius.itch.io/stylized-nature-megakit"
+from = "Quaternius (Stylized Nature MegaKit, free Standard version)"
+what = "5 models (CommonTree_3, CommonTree_5, Bush_Common_Flowers, Flower_4_Group, Plant_7_Big) packed into days/08-utopia/models/ with smaller textures; placed by map.py in 48 planters down both sides of the bridge"
+time = "Pack downloaded 8 Nov 2026"
+resolution = "Stylised low-poly models at roughly real size (trees 6–9 m); placement is imagined"
+licence = "CC0 1.0 (public domain), models by Quaternius"
+
+[[source]]
+name = "Cyclist model"
+url = "https://github.com/alittlesliceoftom/map-challenge-2026/tree/main/days/08-utopia/models.py"
+from = "Generated in models.py"
+what = "One low-poly rider and bike built from boxes and rings; wheels and crank turn and the legs follow the pedals"
+time = "Generated 8 Nov 2026"
+resolution = "Schematic"
 licence = "My own; no third-party licence"

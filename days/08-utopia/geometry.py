@@ -46,6 +46,7 @@ class Corridor:
     lane: BaseGeometry
     routes: dict[str, LineString]
     lane_routes: list[str] = field(default_factory=lambda: list(LANE_ROUTES))
+    bridge: LineString | None = None  # the lane's centreline across Waterloo Bridge itself
 
 
 def build_walkable(streets: gpd.GeoDataFrame, buildings: gpd.GeoDataFrame) -> BaseGeometry:
@@ -70,6 +71,31 @@ def build_walkable(streets: gpd.GeoDataFrame, buildings: gpd.GeoDataFrame) -> Ba
     if len(buildings):
         walkable = walkable.difference(unary_union(list(buildings.geometry)))
     return unary_union([walkable, *elevated])
+
+
+def place_planters(route: LineString, walkable: BaseGeometry, offset: float = 7.5,
+                   spacing: float = 24.0, size: tuple[float, float] = (6.0, 2.4)) -> list:
+    """Rectangular planters either side of a route, `offset` metres out, every
+    `spacing` metres, kept only where they sit fully on the walkable deck."""
+    import numpy as np
+    from shapely import affinity
+    from shapely.geometry import box as _box
+
+    out = []
+    for s in np.arange(spacing / 2, route.length - spacing / 2 + 1e-6, spacing):
+        p = np.array(route.interpolate(s).coords[0])
+        a = np.array(route.interpolate(max(s - 2, 0)).coords[0])
+        b = np.array(route.interpolate(min(s + 2, route.length)).coords[0])
+        t = (b - a) / np.linalg.norm(b - a)
+        n = np.array([-t[1], t[0]])
+        ang = float(np.degrees(np.arctan2(t[1], t[0])))
+        for side in (-1, 1):
+            cx, cy = p + side * offset * n
+            rect = affinity.rotate(_box(cx - size[0] / 2, cy - size[1] / 2, cx + size[0] / 2, cy + size[1] / 2),
+                                   ang, origin=(cx, cy))
+            if walkable.contains(rect.buffer(0.3)):
+                out.append(rect)
+    return out
 
 
 def build_lane(routes: dict[str, LineString], lane_routes: list[str], half_width: float = 2.0) -> BaseGeometry:
@@ -160,4 +186,8 @@ def load_corridor() -> Corridor:
         g = roads if name in LANE_ROUTES else graph
         routes[name] = drop_loops(_route_line(g, [(p.x, p.y) for p in pts]))
     walkable = build_walkable(streets, buildings)
-    return Corridor(walkable=walkable, lane=build_lane(routes, LANE_ROUTES), routes=routes)
+    deck = streets[(streets.get("name") == "Waterloo Bridge") & streets["highway"].isin(["primary"])]
+    on_deck = routes[LANE_ROUTES[0]].intersection(unary_union(list(deck.geometry)).buffer(15))
+    pieces = [g for g in getattr(on_deck, "geoms", [on_deck]) if g.geom_type == "LineString"]
+    bridge = max(pieces, key=lambda g: g.length) if pieces else None
+    return Corridor(walkable=walkable, lane=build_lane(routes, LANE_ROUTES), routes=routes, bridge=bridge)

@@ -11,6 +11,7 @@ Run it from the project folder:
 It saves map.html next to this file (self-contained: the trips are inlined).
 """
 
+import base64
 from pathlib import Path
 
 import geopandas as gpd
@@ -19,7 +20,8 @@ from shapely.geometry import mapping
 from shapely.ops import unary_union
 
 from agents import LOOP_S, PULSES, bus_trips, cyclist_trips, to_deck_json, walker_trips, wrap_loop
-from geometry import CRS, WALK_ROUTES, load_corridor
+from geometry import CRS, WALK_ROUTES, load_corridor, place_planters
+from models import cyclist_glb
 from render import render
 
 HERE = Path(__file__).parent
@@ -38,6 +40,10 @@ TOUR: list[dict] = [
 ]
 
 
+def _data_uri(glb: bytes) -> str:
+    return "data:model/gltf-binary;base64," + base64.b64encode(glb).decode()
+
+
 def _geojson(geom) -> dict:
     wgs = gpd.GeoSeries([geom.simplify(0.5)], crs=CRS).to_crs("EPSG:4326")[0]
     return {"type": "Feature", "properties": {}, "geometry": mapping(wgs)}
@@ -51,9 +57,33 @@ def _lights(c) -> list[dict]:
             {"pos": [round(ends[1].x, 6), round(ends[1].y, 6)], "dir": -1}]
 
 
+def _greenery(planters, rng) -> list[dict]:
+    """One tree per planter, with flowering bushes and plants around it.
+    m = model, p = [lon, lat], y = yaw (deg), s = scale."""
+    items = []
+    for k, rect in enumerate(planters):
+        xs, ys = rect.exterior.coords.xy
+        c = rect.centroid
+        ax = np.array([xs[1] - xs[0], ys[1] - ys[0]])
+        ax = ax / np.linalg.norm(ax)                    # along the planter
+        def at(d):
+            return c.x + d * ax[0], c.y + d * ax[1]
+        items.append(("CommonTree_3" if k % 3 else "CommonTree_5", at(0), rng.uniform(0, 360), rng.uniform(0.85, 1.1)))
+        for d in (-2.0, 2.0):
+            kind = "Bush_Common_Flowers" if rng.random() < 0.6 else "Flower_4_Group"
+            items.append((kind, at(d + rng.uniform(-0.3, 0.3)), rng.uniform(0, 360), rng.uniform(0.6, 0.8)))
+        items.append(("Plant_7_Big", at(rng.uniform(-1.2, 1.2)), rng.uniform(0, 360), 1.0))
+    pts = gpd.GeoSeries([gpd.points_from_xy([i[1][0]], [i[1][1]])[0] for i in items], crs=CRS).to_crs("EPSG:4326")
+    return [{"m": m, "p": [round(p.x, 7), round(p.y, 7)], "y": round(y), "s": round(s, 2)}
+            for (m, _, y, s), p in zip(items, pts)]
+
+
 def main() -> None:
     rng = np.random.default_rng(8)
     c = load_corridor()
+    # planters and trees down both sides of the bridge; walkers route around them
+    planters = place_planters(c.bridge, c.walkable, offset=8.0, spacing=26.0) if c.bridge else []
+    c.walkable = c.walkable.difference(unary_union(planters).buffer(0.4))
     trips = (walker_trips(c, N_WALKERS, rng) + cyclist_trips(c, N_CYCLISTS, rng)
              + bus_trips(c, N_BUSES_PER_PULSE, rng))
     reach = unary_union([c.routes[n].buffer(20) for n in WALK_ROUTES + c.lane_routes])
@@ -63,6 +93,10 @@ def main() -> None:
         "plaza": _geojson(c.walkable.intersection(reach)),
         "lane": _geojson(c.lane),
         "lights": _lights(c),
+        "planters": {"type": "FeatureCollection", "features": [_geojson(p) for p in planters]},
+        "greenery": _greenery(planters, np.random.default_rng(9)),
+        "models": {"cyclist": _data_uri(cyclist_glb()),
+                   **{f.stem: _data_uri(f.read_bytes()) for f in sorted((HERE / "models").glob("*.glb"))}},
     }
     out = HERE / "map.html"
     render(to_deck_json(wrap_loop(trips)), out, tour=TOUR, extras=extras)

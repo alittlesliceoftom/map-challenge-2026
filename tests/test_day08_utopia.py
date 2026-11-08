@@ -6,6 +6,7 @@ from pathlib import Path
 import geopandas as gpd
 import pytest
 from shapely.geometry import LineString, Point, box
+from shapely.ops import unary_union
 
 DAY = Path(__file__).resolve().parent.parent / "days" / "08-utopia"
 sys.path.insert(0, str(DAY))
@@ -245,3 +246,65 @@ def test_drop_loops_cuts_out_and_back_spurs():
     assert out.coords[0] == (0, 0) and out.coords[-1] == (0, 200)
     straight = LineString([(0, 0), (0, 100), (50, 150)])
     assert drop_loops(straight).equals(straight)
+
+
+# ── Procedural animated cyclist ─────────────────────────────────────────────
+import json as _json  # noqa: E402
+import struct as _struct  # noqa: E402
+
+
+def _gltf(glb: bytes) -> dict:
+    assert glb[:4] == b"glTF" and _struct.unpack("<I", glb[4:8])[0] == 2
+    n = _struct.unpack("<I", glb[12:16])[0]
+    return _json.loads(glb[20:20 + n])
+
+
+def test_cyclist_glb_has_one_second_pedalling_animation():
+    from models import cyclist_glb
+    g = _gltf(cyclist_glb())
+    (anim,) = g["animations"]
+    animated = {g["nodes"][c["target"]["node"]]["name"] for c in anim["channels"]}
+    assert {"wheel_front", "wheel_rear", "crank", "thigh_L", "shin_L", "thigh_R", "shin_R"} <= animated
+    for s in anim["samplers"]:
+        assert g["accessors"][s["input"]]["max"] == [1.0]
+
+
+def test_cyclist_feet_stay_on_the_pedals():
+    from models import CRANK_R, cyclist_pose
+    for theta in np.linspace(0, 2 * np.pi, 17):
+        pose = cyclist_pose(theta)
+        for side in ("L", "R"):
+            foot, pedal = np.array(pose["foot_" + side]), np.array(pose["pedal_" + side])
+            assert np.linalg.norm(foot - pedal) < 0.02, (theta, side)
+        assert abs(np.linalg.norm(np.array(pose["pedal_L"]) - np.array(pose["bb"])) - CRANK_R) < 1e-6
+
+
+# ── Greenery: packed MegaKit models, planters on the bridge ─────────────────
+MEGAKIT = DAY / "data" / "megakit" / "glTF"
+
+
+@pytest.mark.skipif(not MEGAKIT.exists(), reason="Quaternius MegaKit not downloaded")
+def test_pack_gltf_is_small_self_contained_glb():
+    from models import pack_gltf
+    glb = pack_gltf(MEGAKIT / "CommonTree_5.gltf", max_texture=512)
+    g = _gltf(glb)
+    assert len(glb) < 400_000
+    assert all("uri" not in im for im in g.get("images", []))
+    for mesh in g["meshes"]:
+        for prim in mesh["primitives"]:
+            assert "TANGENT" not in prim["attributes"]
+    assert all("normalTexture" not in m for m in g["materials"])
+
+
+def test_planters_sit_on_the_deck_and_walkers_avoid_them(corridor):
+    from agents import walker_trips
+    from geometry import place_planters
+    planters = place_planters(corridor.routes["r"], corridor.walkable, offset=6.0, spacing=40.0)
+    assert len(planters) >= 20  # both sides of a 600 m deck
+    for p in planters:
+        assert corridor.walkable.contains(p)
+        assert not p.intersects(corridor.lane)
+    corridor.walkable = corridor.walkable.difference(unary_union(planters).buffer(0.4))
+    hits = sum(any(p.contains(Point(q)) for p in planters)
+               for t in walker_trips(corridor, 150, np.random.default_rng(11)) for q in t.path)
+    assert hits == 0

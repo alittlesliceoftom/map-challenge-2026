@@ -62,6 +62,8 @@ const LOOP_S = EXTRAS.loop_s || 420;
 // Needs deck.gl >= 9.3: 9.2 ignored glTF skins, so the figures glided in a T-pose.
 let speed = 3;
 const GAIT = 1.1;
+// PEDAL: wheel/crank turns per simulated second for a ~5 m/s rider on 2.1 m wheels.
+const PEDAL = 2.3;
 const COLORS = { w: [238, 119, 51], b: [51, 187, 238], u: [204, 51, 17] };
 const MOBILE = !new URLSearchParams(location.search).has("desktop") && matchMedia("(max-width: 700px), (hover: none) and (pointer: coarse)").matches;
 // thin by trip id, so wrapped copies stay with their originals
@@ -178,6 +180,11 @@ function gaitFor(group) {
   return gaitCache[key] ||= { "*": { speed: speed * GAIT, startTime: group * 700 } };
 }
 
+function pedalFor() {
+  const key = "bike:" + speed;
+  return gaitCache[key] ||= { "*": { speed: speed * PEDAL } };
+}
+
 function figureLayers(t) {
   const walkers = nearestToCentre(positionsAt(t, "w"), MAX_FIGURES);
   const bikes = positionsAt(t, "b"), buses = positionsAt(t, "u");
@@ -190,12 +197,30 @@ function figureLayers(t) {
     onError: () => { modelFailed = true; return true; } }));
   return [
     ...people,
-    new deck.ScatterplotLayer({ id: "bikes", data: bikes, getPosition: d => d.pos, getRadius: 1.1,
-      radiusMinPixels: 3, getFillColor: COLORS.b, stroked: true, getLineColor: [23, 20, 18],
-      lineWidthUnits: "pixels", getLineWidth: 1 }),
+    // procedural rider + bike (models.py): wheels and crank turn, legs follow the pedals
+    new deck.ScenegraphLayer({ id: "bikes", data: bikes, scenegraph: EXTRAS.models.cyclist,
+      getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: 1.6,
+      _animations: pedalFor(), _lighting: "pbr", getColor: [255, 255, 255],
+      onError: () => { modelFailed = true; return true; } }),
     new deck.PolygonLayer({ id: "buses", data: buses, getPolygon: busFootprint, extruded: true,
       getElevation: 4.2, getFillColor: COLORS.u, getLineColor: [23, 20, 18] }),
   ];
+}
+
+// ── Planters and trees on the bridge (Quaternius Stylized Nature MegaKit, CC0) ──
+const GREEN_MODELS = [...new Set((EXTRAS.greenery || []).map(d => d.m))];
+let greenLayers = null;
+function greeneryLayers() {
+  if (greenLayers || !EXTRAS.planters) return greenLayers || [];
+  greenLayers = [
+    new deck.PolygonLayer({ id: "planters", data: EXTRAS.planters.features, getPolygon: f => f.geometry.coordinates,
+      extruded: true, getElevation: 0.6, getFillColor: [196, 186, 170], material: { ambient: 0.5, diffuse: 0.6 } }),
+    ...GREEN_MODELS.map(m => new deck.ScenegraphLayer({
+      id: "green-" + m, data: EXTRAS.greenery.filter(d => d.m === m), scenegraph: EXTRAS.models[m],
+      getPosition: d => [d.p[0], d.p[1], 0.6], getOrientation: d => [0, d.y, 90], getScale: d => [d.s, d.s, d.s],
+      _lighting: "pbr", onError: () => true })),
+  ];
+  return greenLayers;
 }
 
 function buildLayers(t, zoom) {
@@ -204,6 +229,7 @@ function buildLayers(t, zoom) {
     ...plazaLayers(),
     tripsLayer("w", t, street ? 0.22 : 0.9), tripsLayer("b", t, street ? 0.3 : 0.95), tripsLayer("u", t, 1),
     ...lightLayers(t),
+    ...greeneryLayers(),
     ...(street ? figureLayers(t) : []),
   ];
 }
