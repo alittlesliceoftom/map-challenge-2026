@@ -1,34 +1,37 @@
 # Where does the data come from? One [[source]] block per dataset.
-# Everything here shows on the day page. Empty fields show a red "missing" flag.
-#
-# The test: could a stranger get exactly this data again, and know how far to trust it?
-# (data/ isn't saved in git, so this file is the only record of where it came from.)
-#
-# Before you fill it in:
-#   - Downloaded with a query (Overpass, an API, SQL)? Save the query as a file in
-#     this folder (e.g. query.overpassql), NOT in data/, so it gets saved in git.
-#   - Look inside the file for its own dates and caveats: an Overpass GeoJSON has a
-#     "timestamp" at the top; OSM features often have source=... or fixme=... tags.
 
 [[source]]
-name = ""          # what it's called, e.g. "Street trees"
-url = ""           # a link to THIS data, not to the tool you used. Bad: "https://overpass-turbo.eu/".
-                   # Good: an overpass-turbo Share link to your exact query, the OSM wiki
-                   # page for the tag, or the dataset's own page on the publisher's site.
-from = ""          # who MADE the data (not the tool), spelled the way they spell it,
-                   # e.g. "OpenStreetMap contributors (via the Overpass API)", "City of Chicago"
-what = ""          # what one row/pixel is, how many there are, and what's NOT in it,
-                   # e.g. "12,400 points, one per council-owned tree; trees in private gardens not included"
-time = ""          # two dates: when the data describes, and when you downloaded it.
-                   # e.g. "Trees surveyed 2019–2024; downloaded 5 Nov 2026"
-resolution = ""    # how precise it REALLY is, not how precise it looks. "Exact coordinates" is
-                   # almost never true. e.g. "single points; GPS/aerial-imagery accuracy (~5–10 m)",
-                   # "by county", "30 m pixels". Mention known guesses (fixme / interpolated parts).
-licence = ""       # e.g. "ODbL, © OpenStreetMap contributors", "Public domain", "CC BY 4.0".
-                   # Most licences also want a credit ON the map itself, not just on this page.
+name = "Streets, pedestrian areas and buildings around Waterloo Bridge"
+url = "https://www.openstreetmap.org/#map=17/51.5090/-0.1180"
+from = "OpenStreetMap contributors (via the Overpass API, using osmnx); query described in query.md"
+what = "About 2,700 street features (every highway=* way and pedestrian area) and their buildings, between Waterloo station and Covent Garden; turned into a walkable area by buffering each street by a width from its type and removing buildings"
+time = "OpenStreetMap as of 8 Nov 2026; downloaded 8 Nov 2026"
+resolution = "OSM street centrelines (~1–5 m); street widths are estimates by street type (e.g. 10 m either side of a main road), not surveyed kerb lines"
+licence = "ODbL, © OpenStreetMap contributors (credited on the map)"
 
-# Using a second dataset? Copy the whole block above (from [[source]] down).
-# Count the background map too if it carries information you rely on.
-#
-# Quoting something in notes.md? Open it and read it first, then quote what it actually
-# says (who wrote it, when). Don't paraphrase it from memory.
+[[source]]
+name = "Basemap and 3D buildings"
+url = "https://openfreemap.org/"
+from = "OpenFreeMap (Liberty style), built on OpenMapTiles from OpenStreetMap data"
+what = "Vector tiles for the background map, including building heights used for the 3D buildings"
+time = "Tiles as served when the page is viewed"
+resolution = "Vector tiles; building heights from OSM tags where present, otherwise estimated"
+licence = "OpenFreeMap and OpenMapTiles: BSD/CC-BY; data ODbL, © OpenStreetMap contributors (credited on the map)"
+
+[[source]]
+name = "Walking figure (CesiumMan)"
+url = "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CesiumMan"
+from = "Cesium, published in the Khronos glTF Sample Assets"
+what = "One animated 3D model of a walking person, reused for every walker at street zoom"
+time = "Model © 2017; pinned to commit 8f492390 of the sample assets repo"
+resolution = "Low-poly model, drawn about twice life size so people stay visible"
+licence = "CC BY 4.0, © 2017 Cesium; the Cesium logo on the texture is a Cesium trademark"
+
+[[source]]
+name = "People, bikes and buses (synthetic)"
+url = "https://github.com/alittlesliceoftom/map-challenge-2026/tree/main/days/08-utopia"
+from = "Generated in map.py (agents.py)"
+what = "1,200 walkers, 90 cyclists and 12 buses per 7-minute cycle. Walkers follow the streets but wander across the full width; cyclists and buses share one central lane; buses run as signalled one-way convoys. Illustrative, not counts"
+time = "Generated 8 Nov 2026 (random seed 8)"
+resolution = "Imagined: positions are made up to look plausible, not measured"
+licence = "My own; no third-party licence"
