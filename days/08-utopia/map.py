@@ -23,7 +23,7 @@ from geometry import CRS, WALK_ROUTES, load_corridor
 from render import render
 
 HERE = Path(__file__).parent
-N_WALKERS, N_CYCLISTS, N_BUSES_PER_PULSE = 1200, 150, 6
+N_WALKERS, N_CYCLISTS, N_BUSES_PER_PULSE = 1200, 90, 6
 
 TOUR: list[dict] = []  # filled in Task 6
 
@@ -31,6 +31,14 @@ TOUR: list[dict] = []  # filled in Task 6
 def _geojson(geom) -> dict:
     wgs = gpd.GeoSeries([geom.simplify(0.5)], crs=CRS).to_crs("EPSG:4326")[0]
     return {"type": "Feature", "properties": {}, "geometry": mapping(wgs)}
+
+
+def _lights(c) -> list[dict]:
+    """Traffic lights at both ends of the single lane: dir is the way they let buses in."""
+    lane = c.routes[c.lane_routes[0]]
+    ends = gpd.GeoSeries([lane.interpolate(3), lane.interpolate(lane.length - 3)], crs=CRS).to_crs("EPSG:4326")
+    return [{"pos": [round(ends[0].x, 6), round(ends[0].y, 6)], "dir": 1},
+            {"pos": [round(ends[1].x, 6), round(ends[1].y, 6)], "dir": -1}]
 
 
 def main() -> None:
@@ -44,6 +52,7 @@ def main() -> None:
         "pulses": PULSES,
         "plaza": _geojson(c.walkable.intersection(reach)),
         "lane": _geojson(c.lane),
+        "lights": _lights(c),
     }
     out = HERE / "map.html"
     render(to_deck_json(wrap_loop(trips)), out, tour=TOUR, extras=extras)
