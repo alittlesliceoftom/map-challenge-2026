@@ -115,3 +115,67 @@ def test_cyclists_in_lane_and_fast(corridor):
         assert all(lane.contains(Point(p)) for p in t.path)
         assert 3.5 <= _speeds(t) <= 7.0
         assert t.kind == "bike"
+
+
+# ── Task 3: bus pulses, loop wrap, JSON ─────────────────────────────────────
+def test_buses_enter_on_green_and_clear_before_the_other_way(corridor):
+    # The gate is green for a pulse's entry window; every bus must be off the
+    # single lane before the opposite pulse's window opens.
+    from agents import LOOP_S, PULSES, bus_trips
+    starts = [s for s, _, _ in PULSES]
+    for t in bus_trips(corridor, 6, np.random.default_rng(7)):
+        i = [k for k, (s, e, _) in enumerate(PULSES) if s <= t.timestamps[0] <= e]
+        assert len(i) == 1
+        next_start = starts[i[0] + 1] if i[0] + 1 < len(starts) else LOOP_S
+        assert t.timestamps[-1] <= next_start
+        assert t.kind == "bus"
+
+
+def test_buses_one_way_per_pulse(corridor):
+    from agents import PULSES, bus_trips
+    trips = bus_trips(corridor, 6, np.random.default_rng(8))
+    route = corridor.routes["r"]
+    signs = []
+    for s, e, d in PULSES:
+        mine = [t for t in trips if s - 1e-6 <= t.timestamps[0] <= e]
+        assert len(mine) == 6
+        moves = {np.sign(route.project(Point(t.path[-1])) - route.project(Point(t.path[0]))) for t in mine}
+        assert moves == {d}
+        signs.append(d)
+    assert signs[0] == -signs[1]
+
+
+def test_buses_on_lane(corridor):
+    from agents import bus_trips
+    lane = corridor.lane.buffer(0.5)
+    for t in bus_trips(corridor, 6, np.random.default_rng(9)):
+        assert all(lane.contains(Point(p)) for p in t.path)
+
+
+def test_wrap_loop_duplicates_boundary_trips():
+    from agents import LOOP_S, Trip, wrap_loop
+    a = Trip("walk", [(0, 0), (10, 0)], [LOOP_S - 10, LOOP_S + 10])
+    b = Trip("walk", [(0, 0), (10, 0)], [10, 20])
+    out = wrap_loop([a, b])
+    assert len(out) == 3
+    assert any(t.timestamps == [-10, 10] for t in out)
+
+
+def test_wrap_loop_long_trips_cover_every_loop():
+    from agents import LOOP_S, Trip, wrap_loop
+    long = Trip("walk", [(0, 0), (10, 0)], [100, 100 + 2.5 * LOOP_S])
+    out = wrap_loop([long])
+    # visible at every moment of the loop: some copy spans t for every t in [0, LOOP_S)
+    for t in np.linspace(0, LOOP_S - 1, 50):
+        assert any(c.timestamps[0] <= t <= c.timestamps[-1] for c in out)
+
+
+def test_to_deck_json_wgs84_and_rounding(corridor):
+    from agents import to_deck_json, walker_trips
+    rows = to_deck_json(walker_trips(corridor, 5, np.random.default_rng(10)))
+    for r in rows:
+        assert set(r) == {"k", "p", "t"} and r["k"] == "w"
+        for lon, lat in r["p"]:
+            assert -0.13 < lon < -0.10 and 51.50 < lat < 51.52
+            assert round(lon, 6) == lon and round(lat, 6) == lat
+        assert all(round(x, 1) == x for x in r["t"])

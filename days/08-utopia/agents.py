@@ -14,7 +14,9 @@ from shapely.ops import nearest_points
 from geometry import Corridor
 
 LOOP_S = 420.0
-PULSES = [(180.0, 210.0, 1), (390.0, 420.0, -1)]  # (start s, end s, direction along route)
+# Single signalled lane: (green from s, green until s, direction along the route).
+# Buses enter while green and must be clear before the other way turns green.
+PULSES = [(0.0, 30.0, 1), (210.0, 240.0, -1)]
 
 STEP_M = 10.0          # distance between walker waypoints
 CAST_M = 14.0          # how far either side of the route a walker may drift
@@ -143,3 +145,53 @@ def cyclist_trips(c: Corridor, n: int, rng: np.random.Generator) -> list[Trip]:
         path = _inside(c.lane, np.array(pts))
         trips.append(_timed("bike", path, rng.uniform(4.0, 6.0), rng.uniform(0, LOOP_S)))
     return trips
+
+
+def bus_trips(c: Corridor, n_per_pulse: int, rng: np.random.Generator) -> list[Trip]:
+    """Convoys on the single signalled lane: one direction per green phase."""
+    route = c.routes[c.lane_routes[0]]
+    ss = np.append(np.arange(0, route.length, 10.0), route.length)
+    line = np.array([route.interpolate(s).coords[0] for s in ss])
+    starts = [s for s, _, _ in PULSES] + [LOOP_S]
+    trips = []
+    for k, (green, until, direction) in enumerate(PULSES):
+        pts = line if direction > 0 else line[::-1]
+        clear_by = starts[k + 1] - 2.0
+        gap = (until - green) / max(n_per_pulse, 1)
+        for i in range(n_per_pulse):
+            t0 = green + i * gap + rng.uniform(0, 0.3 * gap)
+            # fast enough to be off the lane before the other way goes green
+            speed = max(rng.uniform(5.5, 7.0), route.length / (clear_by - t0))
+            trips.append(_timed("bus", pts, speed, t0))
+    return trips
+
+
+def wrap_loop(trips: list[Trip], loop_s: float = LOOP_S) -> list[Trip]:
+    """Copies shifted back by whole loops, so trips running past the end reappear at t=0."""
+    out = list(trips)
+    for t in trips:
+        k = 1
+        while t.timestamps[-1] - k * loop_s > 0:
+            out.append(Trip(t.kind, t.path, [x - k * loop_s for x in t.timestamps]))
+            k += 1
+    return out
+
+
+_KIND = {"walk": "w", "bike": "b", "bus": "u"}
+
+
+def to_deck_json(trips: list[Trip], crs: str = "EPSG:27700") -> list[dict]:
+    """Compact rows for deck.gl: k = kind, p = [[lon, lat]], t = seconds."""
+    from pyproj import Transformer
+
+    to_wgs = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+    rows = []
+    for t in trips:
+        xs, ys = zip(*t.path)
+        lon, lat = to_wgs.transform(xs, ys)
+        rows.append({
+            "k": _KIND[t.kind],
+            "p": [[round(a, 6), round(b, 6)] for a, b in zip(lon, lat)],
+            "t": [round(float(x), 1) for x in t.timestamps],
+        })
+    return rows
