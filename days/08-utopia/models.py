@@ -1,8 +1,12 @@
-"""A procedural, animated low-poly cyclist as a binary glTF (.glb).
+"""Procedural, animated low-poly people as binary glTF (.glb): a cyclist and a walker.
 
-No free CC0 animated cyclist exists, so this builds one from boxes and rings:
-the wheels and crank turn, and the legs follow the pedals by two-bone IK.
+Both are rigid jointed figures animated by node rotations. deck.gl's ScenegraphLayer
+plays node animations but never skins a mesh, so a skinned character (CesiumMan) stays
+frozen in its bind pose however its animation is driven.
+
+Cyclist: the wheels and crank turn, and the legs follow the pedals by two-bone IK.
 One animation cycle (1 s) is one turn of the wheels and the crank.
+Walker: one cycle (1 s) is two steps; the body bobs so a foot is always on the ground.
 
 Model space: X forward, Y up (glTF convention), so the page orients it exactly like
 the walking figure: getOrientation = [0, 90 - heading, 90].
@@ -28,8 +32,14 @@ FRAMES = 17                 # animation keyframes over one cycle
 COLOURS = {
     "frame": (0.20, 0.73, 0.93, 1), "tyre": (0.10, 0.10, 0.10, 1), "metal": (0.55, 0.55, 0.58, 1),
     "shirt": (1.00, 0.82, 0.40, 1), "legs": (0.22, 0.22, 0.26, 1), "skin": (0.88, 0.70, 0.60, 1),
-    "helmet": (0.95, 0.95, 0.95, 1),
+    "helmet": (0.95, 0.95, 0.95, 1), "hair": (0.25, 0.17, 0.12, 1),
 }
+
+# Walker geometry (metres): about 1.7 m tall
+W_THIGH, W_SHIN = 0.44, 0.44
+W_TORSO, W_ARM = 0.55, 0.58
+W_LEG_Z, W_ARM_Z = 0.09, 0.22
+THIGH_SWING, ARM_SWING, KNEE_FLEX = math.radians(24), math.radians(22), math.radians(50)
 
 
 # ── kinematics ───────────────────────────────────────────────────────────────
@@ -59,6 +69,32 @@ def cyclist_pose(theta: float) -> dict:
         pose.update({f"pedal_{side}": tuple(pedal), f"foot_{side}": tuple(foot),
                      f"thigh_{side}": thigh, f"shin_{side}": shin})
     return pose
+
+
+def walker_pose(phase: float) -> dict:
+    """Walk-cycle phase in [0, 1) (two steps) -> joint angles (radians, CCW from +X) and
+    hip height, with the hip at x = 0 and the lower foot exactly on the ground."""
+    pose, feet = {}, {}
+    for side, offset in (("R", 0.0), ("L", 0.5)):
+        a = 2 * math.pi * (phase + offset)
+        thigh = -math.pi / 2 + THIGH_SWING * math.sin(a)
+        shin = thigh - KNEE_FLEX * max(0.0, math.cos(a)) ** 2  # knee folds while the leg swings through
+        knee = W_THIGH * np.array([math.cos(thigh), math.sin(thigh)])
+        feet[side] = knee + W_SHIN * np.array([math.cos(shin), math.sin(shin)])
+        # arms swing against the leg on the same side
+        pose.update({"thigh_" + side: thigh, "shin_" + side: shin,
+                     "arm_" + side: -math.pi / 2 - ARM_SWING * math.sin(a)})
+    hip_y = -min(feet["L"][1], feet["R"][1])
+    for side, f in feet.items():
+        pose["foot_" + side] = (float(f[0]), float(f[1] + hip_y))
+    pose["hip_y"] = hip_y
+    return pose
+
+
+def walker_stride() -> float:
+    """Ground covered per animation cycle (two steps), in model metres."""
+    span = max(abs(walker_pose(p)["foot_R"][0] - walker_pose(p)["foot_L"][0]) for p in np.linspace(0, 1, 65))
+    return 2 * span
 
 
 # ── meshes ───────────────────────────────────────────────────────────────────
@@ -161,7 +197,7 @@ class _Builder:
             self.g["animations"].append({"name": "ride", "channels": [], "samplers": []})
         anim = self.g["animations"][0]
         anim["samplers"].append({"input": self._acc(times.astype("f4"), "SCALAR", True),
-                                 "output": self._acc(values.astype("f4"), "VEC4"),
+                                 "output": self._acc(values.astype("f4"), f"VEC{values.shape[1]}"),
                                  "interpolation": "LINEAR"})
         anim["channels"].append({"sampler": len(anim["samplers"]) - 1,
                                  "target": {"node": node, "path": path}})
@@ -258,6 +294,43 @@ def cyclist_glb() -> bytes:
     for side, (thigh, shin) in legs.items():
         b.animate(thigh, "rotation", t, np.array([_qz(p["thigh_" + side]) for p in poses]))
         b.animate(shin, "rotation", t, np.array([_qz(p["shin_" + side] - p["thigh_" + side]) for p in poses]))
+    return b.glb()
+
+
+def walker_glb(shirt=(0.93, 0.47, 0.20, 1)) -> bytes:
+    b = _Builder()
+    b.mat["shirt"] = len(b.g["materials"])
+    b.g["materials"].append({"name": "shirt", "pbrMetallicRoughness": {
+        "baseColorFactor": list(shirt), "metallicFactor": 0.0, "roughnessFactor": 0.8}})
+    box = _box()
+    m = {k: b.mesh(box, k) for k in ("shirt", "legs", "skin", "hair")}
+    root = b.node("walker")
+    body = b.node("body", root, translation=[0, walker_pose(0)["hip_y"], 0])
+    b.node("torso", body, mesh=m["shirt"], translation=[0, W_TORSO / 2, 0], scale=[0.22, W_TORSO, 0.40])
+    b.node("head", body, mesh=m["skin"], translation=[0.01, W_TORSO + 0.15, 0], scale=[0.20, 0.22, 0.18])
+    b.node("hair", body, mesh=m["hair"], translation=[-0.02, W_TORSO + 0.25, 0], scale=[0.20, 0.07, 0.19])
+    joints = {}
+    for side, z in (("R", W_LEG_Z), ("L", -W_LEG_Z)):
+        thigh = _limb(b, body, "thigh_" + side, (0, 0), W_THIGH, 0.15, m["legs"], z)
+        shin = b.node("shin_" + side, thigh, translation=[W_THIGH, 0, 0])
+        b.node("shin_box_" + side, shin, mesh=m["legs"], translation=[W_SHIN / 2, 0, 0], scale=[W_SHIN, 0.12, 0.12])
+        b.node("shoe_" + side, shin, mesh=m["hair"], translation=[W_SHIN, 0.05, 0], scale=[0.06, 0.24, 0.11])
+        joints["thigh_" + side], joints["shin_" + side] = thigh, shin
+    for side, z in (("R", W_ARM_Z), ("L", -W_ARM_Z)):
+        arm = _limb(b, body, "arm_" + side, (0, W_TORSO - 0.06), W_ARM - 0.1, 0.09, m["shirt"], z)
+        b.node("hand_" + side, arm, mesh=m["skin"], translation=[W_ARM - 0.06, 0, 0], scale=[0.09, 0.08, 0.08])
+        joints["arm_" + side] = arm
+
+    t = np.linspace(0, 1, FRAMES)
+    poses = [walker_pose(p) for p in t]
+    b.animate(body, "translation", t, np.array([[0, p["hip_y"], 0] for p in poses]))
+    for name, node in joints.items():
+        if name.startswith("shin"):
+            thigh = "thigh" + name[4:]
+            vals = [_qz(p[name] - p[thigh]) for p in poses]
+        else:
+            vals = [_qz(p[name]) for p in poses]
+        b.animate(node, "rotation", t, np.array(vals))
     return b.glb()
 
 

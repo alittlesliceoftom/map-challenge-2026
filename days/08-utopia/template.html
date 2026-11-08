@@ -57,11 +57,12 @@ const TOUR = /*__TOUR__*/null;
 const EXTRAS = /*__EXTRAS__*/null;
 const LOOP_S = EXTRAS.loop_s || 420;
 // Simulated seconds per real second, set by the speed slider.
-// GAIT: walk-cycle playback per unit of speed. CesiumMan's cycle is 2 s for two steps;
-// drawn at 2x (about 3 m tall) a step is ~1.2 m, so a 1.3 m/s walk is ~1.8 s per cycle.
-// Needs deck.gl >= 9.3: 9.2 ignored glTF skins, so the figures glided in a T-pose.
 let speed = 3;
-const GAIT = 1.1;
+// Walkers are procedural jointed figures (models.py): deck plays node animations but
+// never skins a mesh, so a skinned character stays frozen in its bind pose.
+// GAIT: walk cycles (two steps) per simulated second, so feet don't skate at ~1.3 m/s.
+const WALKER_SCALE = 1.8;
+const GAIT = 1.3 / (EXTRAS.walker_stride * WALKER_SCALE);
 // PEDAL: wheel/crank turns per simulated second for a ~5 m/s rider on 2.1 m wheels.
 const PEDAL = 2.3;
 const COLORS = { w: [238, 119, 51], b: [51, 187, 238], u: [204, 51, 17] };
@@ -121,7 +122,6 @@ function tripsLayer(kind, t, opacity) {
 // ── Street zoom: 3D people, bikes and buses at their current positions ──
 const FIGURE_ZOOM = 17;
 const MAX_FIGURES = 400;
-const MODEL = "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Assets@8f492390ddc7a2ae221a1369ef560589cf8c70fb/Models/CesiumMan/glTF-Binary/CesiumMan.glb";
 let modelFailed = false;
 const M_PER_DEG_LAT = 111320;
 const M_PER_DEG_LON = 111320 * Math.cos(51.508 * Math.PI / 180);
@@ -189,9 +189,9 @@ function figureLayers(t) {
   // Every instance in a ScenegraphLayer shares one pose, so walkers are split into
   // three groups a third of a cycle apart: neighbours step out of time, not in lockstep.
   const people = [0, 1, 2].map(g => new deck.ScenegraphLayer({
-    id: "people-" + g, data: walkers.filter(d => d.i % 3 === g), scenegraph: MODEL,
-    getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: 2,
-    _animations: animAt(GAIT, g * 2 / 3), _lighting: "pbr", getColor: [255, 255, 255],  // 2 s cycle: a third apart
+    id: "people-" + g, data: walkers.filter(d => d.i % 3 === g), scenegraph: EXTRAS.models["walker_" + g],
+    getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: WALKER_SCALE,
+    _animations: animAt(GAIT, g / 3), _lighting: "pbr", getColor: [255, 255, 255],  // 1 s cycle: a third apart
     onError: () => { modelFailed = true; return true; } }));
   return [
     ...people,

@@ -19,19 +19,19 @@ resolution = "Vector tiles; building heights from OSM tags where present, otherw
 licence = "OpenFreeMap and OpenMapTiles: BSD/CC-BY; data ODbL, © OpenStreetMap contributors (credited on the map)"
 
 [[source]]
-name = "Walking figure (CesiumMan)"
-url = "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CesiumMan"
-from = "Cesium, published in the Khronos glTF Sample Assets"
-what = "One animated 3D model of a walking person, reused for every walker at street zoom"
-time = "Model © 2017; pinned to commit 8f492390 of the sample assets repo"
-resolution = "Low-poly model, drawn about twice life size so people stay visible"
-licence = "CC BY 4.0, © 2017 Cesium; the Cesium logo on the texture is a Cesium trademark"
+name = "Walking figures (procedural)"
+url = "https://github.com/alittlesliceoftom/map-challenge-2026/tree/main/days/08-utopia"
+from = "Built in models.py from boxes, with a two-step walk cycle (swinging legs, bending knees, swinging arms)"
+what = "Three animated low-poly walkers (different shirts), reused for every walker at street zoom"
+time = "Generated 8 Nov 2026"
+resolution = "Low-poly, drawn about 1.8x life size so people stay visible"
+licence = "My own; no third-party licence"
 
 [[source]]
 name = "People, bikes and buses (synthetic)"
 url = "https://github.com/alittlesliceoftom/map-challenge-2026/tree/main/days/08-utopia"
 from = "Generated in map.py (agents.py)"
-what = "1,200 walkers, 90 cyclists and 12 buses per 7-minute cycle. Walkers follow the streets but wander across the full width and around the planters; cyclists and buses share one central lane; buses run as signalled one-way convoys. Illustrative, not counts"
+what = "1,200 walkers, 90 cyclists and 12 buses per 7-minute cycle. Walkers follow the streets but wander across the full width and around the planters; cyclists ride a two-way track beside a single central bus lane; buses run as signalled one-way convoys, and walkers cross the lane between them. Illustrative, not counts"
 time = "Generated 8 Nov 2026 (random seed 8)"
 resolution = "Imagined: positions are made up to look plausible, not measured"
 licence = "My own; no third-party licence"

@@ -375,3 +375,35 @@ def test_real_cyclists_never_touch_bus_lane():
     lane = c.lane.buffer(-0.3)
     for t in cyclist_trips(c, 40, np.random.default_rng(1)):
         assert not LineString(t.path).intersects(lane)
+
+
+# ── Walker: rigid jointed figure (deck's ScenegraphLayer plays node animations, not skins) ──
+def test_walker_glb_animates_legs_and_arms_without_skins():
+    from models import walker_glb
+    g = _gltf(walker_glb())
+    assert "skins" not in g
+    (anim,) = g["animations"]
+    animated = {g["nodes"][c["target"]["node"]]["name"] for c in anim["channels"]}
+    assert {"thigh_L", "thigh_R", "shin_L", "shin_R", "arm_L", "arm_R", "body"} <= animated
+    for s in anim["samplers"]:
+        assert g["accessors"][s["input"]]["max"] == [1.0]
+
+
+def test_walker_glb_shirt_colour():
+    from models import walker_glb
+    g = _gltf(walker_glb(shirt=(0.1, 0.2, 0.3, 1)))
+    shirts = [m for m in g["materials"] if m["name"] == "shirt"]
+    assert shirts[0]["pbrMetallicRoughness"]["baseColorFactor"] == [0.1, 0.2, 0.3, 1]
+
+
+def test_walker_always_has_a_foot_on_the_ground_and_steps():
+    from models import walker_pose
+    phases = np.linspace(0, 1, 33)
+    poses = [walker_pose(p) for p in phases]
+    for p in poses:
+        assert abs(min(p["foot_L"][1], p["foot_R"][1])) < 1e-6
+    # feet take turns being in front: legs swing in opposite phase
+    lead = [np.sign(p["foot_R"][0] - p["foot_L"][0]) for p in poses]
+    assert {-1.0, 1.0} <= set(lead)
+    span = max(abs(p["foot_R"][0] - p["foot_L"][0]) for p in poses)
+    assert 0.5 < span < 1.0  # a natural step, not a shuffle or a split
