@@ -11,7 +11,7 @@ from shapely.ops import unary_union
 DAY = Path(__file__).resolve().parent.parent / "days" / "08-utopia"
 sys.path.insert(0, str(DAY))
 
-from geometry import CRS, build_lane, build_walkable, load_corridor  # noqa: E402
+from geometry import CRS, build_cycle, build_lane, build_walkable, load_corridor  # noqa: E402
 
 
 def test_build_walkable_subtracts_buildings():
@@ -35,6 +35,15 @@ def test_build_lane_width():
     lane = build_lane({"r": LineString([(0, 0), (100, 0)])}, ["r"])
     assert lane.contains(Point(50, 1.9))
     assert not lane.contains(Point(50, 2.1))
+
+
+def test_cycle_track_beside_lane_not_on_it():
+    route = LineString([(0, 0), (100, 0)])
+    centre, track = build_cycle(route)
+    lane = build_lane({"r": route}, ["r"])
+    assert abs(centre.interpolate(50).y - 4.25) < 0.01  # left of travel
+    assert track.contains(Point(50, 4.25))
+    assert track.intersection(lane).area < 1e-6
 
 
 def test_routes_inside_walkable():
@@ -62,7 +71,18 @@ def corridor():
         lane=box(X0, Y0 - 2, X0 + 600, Y0 + 2),
         routes={"r": LineString([(X0, Y0), (X0 + 600, Y0)])},
         lane_routes=["r"],
+        cycle=box(X0, Y0 + 2.75, X0 + 600, Y0 + 5.75),
+        cycle_route=LineString([(X0, Y0 + 4.25), (X0 + 600, Y0 + 4.25)]),
     )
+
+
+@pytest.fixture
+def crossing(corridor):
+    """The lane plus a footpath that has to cross it, square on, half way along."""
+    xs = X0 + 300
+    corridor.walkable = unary_union([corridor.walkable, box(xs - 6, Y0 - 200, xs + 6, Y0 + 200)])
+    corridor.routes = {"r": corridor.routes["r"], "x": LineString([(xs, Y0 - 200), (xs, Y0 + 200)])}
+    return corridor
 
 
 def _speeds(trip):
@@ -83,16 +103,40 @@ def test_walkers_zigzag(corridor):
     trips = walker_trips(corridor, 200, np.random.default_rng(2))
     lateral = np.concatenate([np.array(t.path)[:, 1] - Y0 for t in trips])
     assert lateral.std() > 3.0
-    long = [t for t in trips if abs(t.path[-1][0] - t.path[0][0]) > 100]
-    crossers = [t for t in long if len(set(np.sign(np.array(t.path)[:, 1] - Y0))) > 1]
-    assert len(crossers) >= 0.5 * len(long)
+    both_sides = {np.sign(np.array(t.path)[0, 1] - Y0) for t in trips}
+    assert both_sides == {-1.0, 1.0}
 
 
-def test_walkers_mostly_avoid_lane(corridor):
+def test_walkers_never_on_lane_or_cycle_track(corridor):
+    # alongside the lane, walkers keep to their own side
     from agents import walker_trips
+    road = unary_union([corridor.lane, corridor.cycle]).buffer(-0.2)
     lines = [LineString(t.path) for t in walker_trips(corridor, 200, np.random.default_rng(3))]
-    in_lane = sum(line.intersection(corridor.lane).length for line in lines)
-    assert in_lane / sum(line.length for line in lines) < 0.10  # share of distance walked
+    assert sum(line.intersection(road).length for line in lines) < 1.0
+
+
+def test_walkers_cross_the_lane_between_buses(crossing):
+    from agents import LOOP_S, bus_trips, walker_trips
+    rng = np.random.default_rng(8)
+    buses = bus_trips(crossing, 6, rng)
+    walkers = walker_trips(crossing, 300, rng, buses=buses)
+    lane = crossing.lane.buffer(-0.2)  # on the carriageway itself, not the kerb beside it
+    crossed = 0
+    for w in walkers:
+        line = LineString(w.path)
+        d = np.concatenate([[0], np.cumsum(np.hypot(*np.diff(np.array(w.path), axis=0).T))])
+        for s in np.arange(0, line.length, 0.5):
+            p = line.interpolate(s)
+            if not lane.contains(p):
+                continue
+            crossed += 1
+            t = float(np.interp(s, d, w.timestamps)) % LOOP_S
+            for b in buses:
+                if b.timestamps[0] <= t <= b.timestamps[-1]:
+                    bd = np.concatenate([[0], np.cumsum(np.hypot(*np.diff(np.array(b.path), axis=0).T))])
+                    q = LineString(b.path).interpolate(float(np.interp(t, b.timestamps, bd)))
+                    assert p.distance(q) > 10, f"walker hit by a bus at t={t:.0f}"
+    assert crossed > 50  # some people really do cross
 
 
 def test_walkers_both_directions(corridor):
@@ -110,13 +154,24 @@ def test_walker_speeds(corridor):
         assert t.kind == "walk"
 
 
-def test_cyclists_in_lane_and_fast(corridor):
+def test_cyclists_on_cycle_track_and_fast(corridor):
     from agents import cyclist_trips
-    lane = corridor.lane.buffer(0.5)
+    track = corridor.cycle.buffer(0.3)
     for t in cyclist_trips(corridor, 50, np.random.default_rng(6)):
-        assert all(lane.contains(Point(p)) for p in t.path)
+        assert all(track.contains(Point(p)) for p in t.path)
+        assert not LineString(t.path).intersects(corridor.lane)
         assert 3.5 <= _speeds(t) <= 7.0
         assert t.kind == "bike"
+
+
+def test_cyclists_keep_left(corridor):
+    # two-way track: each direction rides its own (UK, left) half
+    from agents import cyclist_trips
+    for t in cyclist_trips(corridor, 50, np.random.default_rng(9)):
+        p = np.array(t.path)
+        forward = p[-1, 0] > p[0, 0]
+        y = p[:, 1].mean() - (Y0 + 4.25)
+        assert (y > 0) == forward
 
 
 # ── Task 3: bus pulses, loop wrap, JSON ─────────────────────────────────────
@@ -308,3 +363,15 @@ def test_planters_sit_on_the_deck_and_walkers_avoid_them(corridor):
     hits = sum(any(p.contains(Point(q)) for p in planters)
                for t in walker_trips(corridor, 150, np.random.default_rng(11)) for q in t.path)
     assert hits == 0
+
+
+def test_real_cyclists_never_touch_bus_lane():
+    # the Aldwych bend is tight: coarse sampling used to cut the corner across the lane
+    from agents import cyclist_trips
+    try:
+        c = load_corridor()
+    except Exception as e:  # offline and no cache
+        pytest.skip(f"corridor unavailable: {e}")
+    lane = c.lane.buffer(-0.3)
+    for t in cyclist_trips(c, 40, np.random.default_rng(1)):
+        assert not LineString(t.path).intersects(lane)

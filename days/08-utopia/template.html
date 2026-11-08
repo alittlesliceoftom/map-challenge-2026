@@ -38,7 +38,7 @@
 <div id="map"></div>
 <div id="title" class="panel">
   <h1>Waterloo Bridge, given back</h1>
-  <p>No cars from Waterloo to Covent Garden. People wander across the old road; one signalled lane carries bikes and the occasional bus convoy.</p>
+  <p>No cars from Waterloo to Covent Garden. People wander across the old road; bikes get their own two-way track, and one signalled lane carries the occasional bus convoy.</p>
 </div>
 <div id="controls" class="panel">
   <button id="skip">Skip tour</button>
@@ -104,6 +104,8 @@ function plazaLayers() {
       getFillColor: [233, 214, 186, 235], ...GROUND }),
     new deck.GeoJsonLayer({ id: "lane", data: EXTRAS.lane, filled: true, stroked: false,
       getFillColor: [205, 190, 168, 255], ...GROUND }),
+    new deck.GeoJsonLayer({ id: "cycle", data: EXTRAS.cycle, filled: true, stroked: false,
+      getFillColor: [150, 196, 214, 255], ...GROUND }),
   ];
 }
 
@@ -173,16 +175,12 @@ function lightLayers(t) {
   ];
 }
 
-// Legs keep pace with the clock: cached so deck only re-applies it when speed changes.
-const gaitCache = {};
-function gaitFor(group) {
-  const key = group + ":" + speed;
-  return gaitCache[key] ||= { "*": { speed: speed * GAIT, startTime: group * 700 } };
-}
-
-function pedalFor() {
-  const key = "bike:" + speed;
-  return gaitCache[key] ||= { "*": { speed: speed * PEDAL } };
+// deck plays glTF animations off its own real-time timeline: phase = (timeline - startTime) * speed.
+// Pin the phase to the sim clock instead, so legs and pedals follow the speed slider and the tour
+// rather than whatever deck's timeline is doing under the map.
+function animAt(rate, offset = 0) {
+  const tl = (overlay._deck?.animationLoop?.timeline?.getTime() ?? 0) / 1000;  // what draw() reads
+  return { "*": { speed: 1, startTime: tl - (simTime * rate + offset) } };
 }
 
 function figureLayers(t) {
@@ -193,14 +191,14 @@ function figureLayers(t) {
   const people = [0, 1, 2].map(g => new deck.ScenegraphLayer({
     id: "people-" + g, data: walkers.filter(d => d.i % 3 === g), scenegraph: MODEL,
     getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: 2,
-    _animations: gaitFor(g), _lighting: "pbr", getColor: [255, 255, 255],
+    _animations: animAt(GAIT, g * 2 / 3), _lighting: "pbr", getColor: [255, 255, 255],  // 2 s cycle: a third apart
     onError: () => { modelFailed = true; return true; } }));
   return [
     ...people,
     // procedural rider + bike (models.py): wheels and crank turn, legs follow the pedals
     new deck.ScenegraphLayer({ id: "bikes", data: bikes, scenegraph: EXTRAS.models.cyclist,
       getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: 1.6,
-      _animations: pedalFor(), _lighting: "pbr", getColor: [255, 255, 255],
+      _animations: animAt(PEDAL), _lighting: "pbr", getColor: [255, 255, 255],
       onError: () => { modelFailed = true; return true; } }),
     new deck.PolygonLayer({ id: "buses", data: buses, getPolygon: busFootprint, extruded: true,
       getElevation: 4.2, getFillColor: COLORS.u, getLineColor: [23, 20, 18] }),

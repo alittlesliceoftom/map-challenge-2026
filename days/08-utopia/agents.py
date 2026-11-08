@@ -8,8 +8,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
+import shapely
 from shapely.geometry import LineString, Point
-from shapely.ops import nearest_points
+from shapely.ops import nearest_points, unary_union
 
 from geometry import Corridor
 
@@ -25,6 +26,9 @@ MIN_TRIP_M = 150.0
 
 
 TRAIL_S = 40.0  # longest trail drawn on the page (template.html trailLength)
+KERB_M = 0.5           # walkers keep this far off the bus lane and cycle track
+PARALLEL_M = 12.0      # a road cross-section wider than this means the route crosses it square on
+BUS_CLEAR_M = 10.0     # half a bus plus room to spare
 
 
 @dataclass
@@ -90,17 +94,63 @@ def _pick_route(c: Corridor, names: list[str], rng) -> LineString:
     return c.routes[names[rng.choice(len(names), p=lengths / lengths.sum())]]
 
 
-def _aim(walk, lane, rng) -> float:
-    """A spot somewhere across the full width, but not in the bus/bike lane."""
-    for _ in range(8):
-        x = rng.uniform(*walk)
-        if lane is None or not (lane[0] - 0.5 < x < lane[1] + 0.5):
-            return x
-    return x
+def _side(walk, road, side) -> tuple[float, float]:
+    """The strip of walkable width on one side (-1 / +1) of the road, or all of it."""
+    if road is None or road[1] - road[0] > PARALLEL_M:
+        return walk
+    lo, hi = (walk[0], road[0] - KERB_M) if side < 0 else (road[1] + KERB_M, walk[1])
+    return (lo, hi) if hi > lo else (lo, lo) if side > 0 else (hi, hi)
 
 
-def walker_trips(c: Corridor, n: int, rng: np.random.Generator) -> list[Trip]:
+class _BusClock:
+    """Where every bus is, second by second, to check a walker's crossing against."""
+
+    def __init__(self, buses: list[Trip], loop_s: float = LOOP_S):
+        self.loop = int(loop_s)
+        self.at: list[list[np.ndarray]] = [[] for _ in range(self.loop)]
+        for b in buses:
+            p = np.array(b.path)
+            for s in range(int(np.ceil(b.timestamps[0])), int(b.timestamps[-1]) + 1):
+                xy = [np.interp(s, b.timestamps, p[:, k]) for k in (0, 1)]
+                self.at[s % self.loop].append(np.array(xy))
+
+    def clear(self, pts: np.ndarray, times: np.ndarray) -> bool:
+        for p, t in zip(pts, times):
+            for s in (int(np.floor(t)), int(np.ceil(t))):
+                for q in self.at[s % self.loop]:
+                    if np.hypot(*(p - q)) < BUS_CLEAR_M:
+                        return False
+        return True
+
+
+def _sample(trip: Trip, every_s: float = 0.25) -> tuple[np.ndarray, np.ndarray]:
+    p, t = np.array(trip.path), np.array(trip.timestamps)
+    ts = np.arange(t[0], t[-1], every_s)
+    return np.column_stack([np.interp(ts, t, p[:, 0]), np.interp(ts, t, p[:, 1])]), ts
+
+
+def _time_crossings(trip: Trip, lane, clock: _BusClock, rng) -> Trip | None:
+    """Shift a walker's start until every moment it spends on the bus lane is bus-free."""
+    pts, ts = _sample(trip)
+    on = shapely.contains_xy(lane, pts[:, 0], pts[:, 1])
+    if not on.any():
+        return trip
+    pts, ts = pts[on], ts[on] - trip.timestamps[0]
+    for _ in range(60):
+        t0 = rng.uniform(0, LOOP_S)
+        if clock.clear(pts, ts + t0):
+            return Trip(trip.kind, trip.path, [x - trip.timestamps[0] + t0 for x in trip.timestamps])
+    return None
+
+
+def walker_trips(c: Corridor, n: int, rng: np.random.Generator, buses: list[Trip] | None = None) -> list[Trip]:
+    """People wandering the full width, but only ever on their own side of the bus lane
+    and cycle track. Where a route has to cross the lane, they cross between buses."""
     names = list(c.routes)
+    # lane + kerb + cycle track as one strip (closing the narrow kerb gap between them)
+    road_geom = unary_union([g for g in (c.lane, c.cycle) if g is not None]).buffer(1).buffer(-1)
+    clock = _BusClock(buses) if buses else None
+    lane_zone = c.lane.buffer(KERB_M) if clock else None
     trips = []
     for _ in range(n):
         route = _pick_route(c, names, rng)
@@ -112,42 +162,53 @@ def walker_trips(c: Corridor, n: int, rng: np.random.Generator) -> list[Trip]:
         if rng.random() < 0.5:
             ss = ss[::-1]
         pts, offset, target, dwell = [], None, None, 0.0
+        side = rng.choice([-1, 1])
         for s in ss:
             p, nrm = _frame(route, s)
             walk = _span(c.walkable, p, nrm, CAST_M) or (0.0, 0.0)
-            lane = _span(c.lane, p, nrm, CAST_M)
+            road = _span(road_geom, p, nrm, CAST_M)
             if offset is None:
-                offset = _aim(walk, lane, rng)
+                offset = rng.uniform(*walk)
+            if road is not None and road[1] - road[0] <= PARALLEL_M and road[0] < offset < road[1]:
+                offset = road[0] - KERB_M if side < 0 else road[1] + KERB_M
+            elif road is not None and road[1] - road[0] <= PARALLEL_M:
+                side = -1 if offset < road[0] else 1
+            free = _side(walk, road, side)
             if target is None or (abs(offset - target) < 0.5 and dwell <= 0):
-                target, dwell = _aim(walk, lane, rng), rng.uniform(30, 90)
-            in_lane = lane is not None and lane[0] - 0.5 < offset < lane[1] + 0.5
-            drift = DRIFT * STEP_M * (2.5 if in_lane else 1.0)  # cross the lane briskly
-            step = np.clip(target - offset, -drift, drift)
-            offset = float(np.clip(offset + step, *walk))
+                target, dwell = rng.uniform(*free), rng.uniform(30, 90)
+            step = np.clip(target - offset, -DRIFT * STEP_M, DRIFT * STEP_M)
+            offset = float(np.clip(offset + step, *free))
             dwell -= STEP_M
             pts.append(p + offset * nrm)
         if len(pts) < 2:
             continue
         path = _inside(c.walkable, _chaikin(np.array(pts)))
         path = np.array(LineString(path).simplify(0.3).coords)  # keeps the file small
-        trips.append(_timed("walk", path, rng.uniform(1.1, 1.5), rng.uniform(0, LOOP_S)))
+        trip = _timed("walk", path, rng.uniform(1.1, 1.5), rng.uniform(0, LOOP_S))
+        if clock is not None:
+            trip = _time_crossings(trip, lane_zone, clock, rng)
+        if trip is not None:
+            trips.append(trip)
     return trips
 
 
 def cyclist_trips(c: Corridor, n: int, rng: np.random.Generator) -> list[Trip]:
+    """Both ways along the two-way cycle track, each direction on its own (left) half."""
+    route = c.cycle_route
     trips = []
     for _ in range(n):
-        route = _pick_route(c, c.lane_routes, rng)
-        ss = np.arange(0, route.length, 15.0)
-        if rng.random() < 0.5:
+        ss = np.append(np.arange(0, route.length, 5.0), route.length)  # fine enough not to cut corners
+        forward = rng.random() < 0.5
+        if not forward:
             ss = ss[::-1]
-        offset = rng.uniform(-1.5, 1.5)
+        keep = 0.75 if forward else -0.75  # left of travel (UK), on the route's normal
+        offset = keep + rng.uniform(-0.3, 0.3)
         pts = []
         for s in ss:
             p, nrm = _frame(route, s)
-            offset = float(np.clip(offset + rng.normal(0, 0.3), -1.5, 1.5))
+            offset = float(np.clip(offset + rng.normal(0, 0.1), keep - 0.45, keep + 0.45))
             pts.append(p + offset * nrm)
-        path = _inside(c.lane, np.array(pts))
+        path = np.array(LineString(_inside(c.cycle, np.array(pts))).simplify(0.2).coords)
         trips.append(_timed("bike", path, rng.uniform(4.0, 6.0), rng.uniform(0, LOOP_S)))
     return trips
 

@@ -1,4 +1,4 @@
-"""Corridor geometry: where people can walk, and the single bus/bike lane.
+"""Corridor geometry: where people can walk, the single bus lane and the cycle track beside it.
 
 Everything is in metres (British National Grid) so distances and widths are easy.
 Routes are shortest paths through the OSM street network between hand-placed
@@ -27,7 +27,7 @@ ROUTES: dict[str, list[tuple[float, float]]] = {
     "strand_west": [(-0.11900, 51.51110), (-0.12180, 51.51070), (-0.12198, 51.51180)],
     # Strand east to St Mary le Strand / Aldwych (car-free since 2022)
     "strand_east": [(-0.11900, 51.51110), (-0.11660, 51.51245), (-0.11480, 51.51300)],
-    # The one shared bus + bike lane: bridge, Lancaster Place, Aldwych
+    # The one signalled bus lane (cycle track alongside): bridge, Lancaster Place, Aldwych
     "bus_lane": [(-0.11414, 51.50556), (-0.11620, 51.50790), (-0.11780, 51.51320)],
 }
 LANE_ROUTES: list[str] = ["bus_lane"]
@@ -47,6 +47,8 @@ class Corridor:
     routes: dict[str, LineString]
     lane_routes: list[str] = field(default_factory=lambda: list(LANE_ROUTES))
     bridge: LineString | None = None  # the lane's centreline across Waterloo Bridge itself
+    cycle: BaseGeometry | None = None  # two-way cycle track beside the bus lane
+    cycle_route: LineString | None = None  # its centreline
 
 
 def build_walkable(streets: gpd.GeoDataFrame, buildings: gpd.GeoDataFrame) -> BaseGeometry:
@@ -100,6 +102,15 @@ def place_planters(route: LineString, walkable: BaseGeometry, offset: float = 7.
 
 def build_lane(routes: dict[str, LineString], lane_routes: list[str], half_width: float = 2.0) -> BaseGeometry:
     return unary_union([routes[n].buffer(half_width, cap_style="flat") for n in lane_routes])
+
+
+def build_cycle(route: LineString, offset: float = 4.25, half_width: float = 1.5) -> tuple[LineString, BaseGeometry]:
+    """A two-way cycle track left of the bus lane (lane half-width 2 m, then a 0.75 m kerb)."""
+    centre = route.offset_curve(offset)
+    if centre.geom_type != "LineString":  # tight bends can split the offset; keep the main run
+        centre = max(centre.geoms, key=lambda g: g.length)
+    centre = drop_loops(centre)
+    return centre, centre.buffer(half_width, cap_style="flat")
 
 
 def _bbox() -> tuple[float, float, float, float]:
@@ -190,4 +201,6 @@ def load_corridor() -> Corridor:
     on_deck = routes[LANE_ROUTES[0]].intersection(unary_union(list(deck.geometry)).buffer(15))
     pieces = [g for g in getattr(on_deck, "geoms", [on_deck]) if g.geom_type == "LineString"]
     bridge = max(pieces, key=lambda g: g.length) if pieces else None
-    return Corridor(walkable=walkable, lane=build_lane(routes, LANE_ROUTES), routes=routes, bridge=bridge)
+    cycle_route, cycle = build_cycle(routes[LANE_ROUTES[0]])
+    return Corridor(walkable=walkable, lane=build_lane(routes, LANE_ROUTES), routes=routes, bridge=bridge,
+                    cycle=cycle.difference(build_lane(routes, LANE_ROUTES)), cycle_route=cycle_route)

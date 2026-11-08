@@ -3,8 +3,8 @@ Day 8 · Utopia
 The prompt: A map of something which could be.
 
 What I'm mapping: Waterloo Bridge, Lancaster Place and the Strand with the cars gone,
-people wandering from Waterloo station to Covent Garden, one signalled lane for bikes
-and bus convoys.
+people wandering from Waterloo station to Covent Garden, a two-way cycle track,
+and one signalled lane for bus convoys.
 
 Run it from the project folder:
     python days/08-utopia/map.py
@@ -84,14 +84,16 @@ def main() -> None:
     # planters and trees down both sides of the bridge; walkers route around them
     planters = place_planters(c.bridge, c.walkable, offset=8.0, spacing=26.0) if c.bridge else []
     c.walkable = c.walkable.difference(unary_union(planters).buffer(0.4))
-    trips = (walker_trips(c, N_WALKERS, rng) + cyclist_trips(c, N_CYCLISTS, rng)
-             + bus_trips(c, N_BUSES_PER_PULSE, rng))
+    buses = bus_trips(c, N_BUSES_PER_PULSE, rng)
+    # walkers keep off the lane, and time any crossing to miss the buses
+    trips = walker_trips(c, N_WALKERS, rng, buses=buses) + cyclist_trips(c, N_CYCLISTS, rng) + buses
     reach = unary_union([c.routes[n].buffer(20) for n in WALK_ROUTES + c.lane_routes])
     extras = {
         "loop_s": LOOP_S,
         "pulses": PULSES,
         "plaza": _geojson(c.walkable.intersection(reach)),
         "lane": _geojson(c.lane),
+        "cycle": _geojson(c.cycle),
         "lights": _lights(c),
         "planters": {"type": "FeatureCollection", "features": [_geojson(p) for p in planters]},
         "greenery": _greenery(planters, np.random.default_rng(9)),
