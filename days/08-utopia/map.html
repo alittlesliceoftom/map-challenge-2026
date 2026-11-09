@@ -99,7 +99,6 @@ function currentTime() { return simTime; }
 const speedInput = document.getElementById("speed-input"), speedOut = document.getElementById("speed-out");
 speedInput.addEventListener("input", () => { speed = +speedInput.value; speedOut.textContent = speed + "x"; });
 
-const DEEP_LINK = /^#\d/.test(location.hash);  // a shared view skips the intro tour
 const map = new maplibregl.Map({
   container: "map",
   style: "https://tiles.openfreemap.org/styles/liberty",
@@ -274,8 +273,8 @@ map.on("load", () => {
     if (/shield|one_way_arrow/.test(l.id)) map.setLayoutProperty(l.id, "visibility", "none");
   }
   requestAnimationFrame(frame);
-  if (!DEEP_LINK && CARDS.length) playTour();
-  else { setButtons(); if (CARDS.length) { openAbout(); showCard(0, 0); } }  // a shared view keeps its camera
+  // always: the map writes the view into the URL hash, so a refresh looks just like a shared link
+  if (CARDS.length) playTour(); else setButtons();
 });
 
 // ── Tour = the About cards, auto-advancing ──
