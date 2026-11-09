@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Waterloo Bridge, given back</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/deck.gl@9.3.11/dist.min.js"></script>
+<style>
+  :root { --paper: #f1ece2; --ink: #171412; --muted: #5a5248; }
+  html, body { margin: 0; height: 100%; background: var(--paper); }
+  body { font-family: "Bricolage Grotesque", system-ui, sans-serif; color: var(--ink); overflow: hidden; }
+  #map { position: absolute; inset: 0; }
+  .panel { position: absolute; z-index: 2; background: var(--paper); border: 1.5px solid var(--ink);
+           border-radius: 10px; padding: 8px 12px; font-size: 13px; line-height: 1.35; }
+  #title { top: 12px; left: 12px; max-width: min(320px, calc(100% - 48px)); }
+  #title h1 { font-size: 17px; margin: 0 0 2px; font-weight: 800; }
+  #title p { margin: 0; color: var(--muted); }
+  #legend { bottom: 28px; left: 12px; display: flex; gap: 12px; flex-wrap: wrap; }
+  #legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+                         margin-right: 5px; background: var(--c); border: 1px solid var(--ink); vertical-align: -1px; }
+  #controls { top: 12px; right: 12px; display: flex; gap: 8px; padding: 0; border: none; background: none; }
+  button { font: 600 13px "Bricolage Grotesque", system-ui, sans-serif; background: var(--paper); color: var(--ink);
+           border: 1.5px solid var(--ink); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+  button:hover { background: var(--ink); color: var(--paper); }
+  #clock { font-variant-numeric: tabular-nums; }
+  #speed { display: flex; align-items: center; gap: 6px; }
+  #speed input { width: 110px; accent-color: var(--ink); }
+  #speed output { font-variant-numeric: tabular-nums; min-width: 3.2em; }
+  #about { left: 50%; bottom: 112px; transform: translateX(-50%); width: min(440px, calc(100% - 48px));
+           box-sizing: border-box; padding: 10px 14px 8px; }
+  #about h2 { font-size: 12px; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  #about-text { font-size: 16px; font-weight: 600; margin: 0 0 8px; min-height: 2.7em; }
+  #about nav { display: flex; align-items: center; gap: 8px; }
+  #about nav button { padding: 2px 12px; font-size: 16px; }
+  #about-count { font-variant-numeric: tabular-nums; color: var(--muted); flex: 1; text-align: center; }
+  #about-close { position: absolute; top: 4px; right: 6px; border: none; padding: 2px 8px; font-size: 16px; }
+  .maplibregl-ctrl-attrib { font-size: 10px; }
+  @media (max-width: 700px) { #title { max-width: calc(100% - 150px); } #title p { display: none; } #title h1 { font-size: 15px; } }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="title" class="panel">
+  <h1>Waterloo Bridge, given back</h1>
+  <p>No cars from Waterloo to Covent Garden. People wander across the old road; bikes get their own two-way track, and one signalled lane carries the occasional bus convoy.</p>
+</div>
+<div id="about" class="panel" hidden>
+  <h2>About</h2>
+  <button id="about-close" aria-label="Close">&times;</button>
+  <p id="about-text" aria-live="polite"></p>
+  <nav><button id="about-prev" aria-label="Back">&larr;</button><span id="about-count"></span>
+       <button id="about-next" aria-label="Next">&rarr;</button></nav>
+</div>
+<div id="controls" class="panel">
+  <button id="skip">Skip tour</button>
+  <button id="replay" hidden>Replay tour</button>
+  <button id="about-open" hidden>About</button>
+</div>
+<div id="legend" class="panel">
+  <span style="--c:#ee7733">People walking</span>
+  <span style="--c:#33bbee">Bikes</span>
+  <span style="--c:#cc3311">Buses</span>
+  <span id="clock"></span>
+  <label id="speed">Speed <input id="speed-input" type="range" min="0.5" max="10" step="0.5" value="3"><output id="speed-out">3x</output></label>
+</div>
+<script>
+const TRIPS = /*__TRIPS__*/null;
+const TOUR = /*__TOUR__*/null;
+const EXTRAS = /*__EXTRAS__*/null;
+const LOOP_S = EXTRAS.loop_s || 420;
+// Simulated seconds per real second, set by the speed slider.
+let speed = 3;
+// Walkers are procedural jointed figures (models.py): deck plays node animations but
+// never skins a mesh, so a skinned character stays frozen in its bind pose.
+// GAIT: walk cycles (two steps) per simulated second, so feet don't skate at ~1.3 m/s.
+const WALKER_SCALE = 1.8;
+const GAIT = 1.3 / (EXTRAS.walker_stride * WALKER_SCALE);
+// PEDAL: wheel/crank turns per simulated second for a ~5 m/s rider on 2.1 m wheels.
+const PEDAL = 2.3;
+const COLORS = { w: [238, 119, 51], b: [51, 187, 238], u: [204, 51, 17] };
+const MOBILE = !new URLSearchParams(location.search).has("desktop") && matchMedia("(max-width: 700px), (hover: none) and (pointer: coarse)").matches;
+// thin by trip id, so wrapped copies stay with their originals
+const trips = MOBILE ? TRIPS.filter(d => d.i % 3 === 0) : TRIPS;
+const byKind = { w: [], b: [], u: [] };
+trips.forEach(d => byKind[d.k].push(d));
+
+// The clock accumulates, so changing speed never makes anyone jump.
+let simTime = 0, lastTick = performance.now();
+function tick() {
+  const now = performance.now();
+  simTime = (simTime + (now - lastTick) / 1000 * speed) % LOOP_S;
+  lastTick = now;
+}
+function currentTime() { return simTime; }
+const speedInput = document.getElementById("speed-input"), speedOut = document.getElementById("speed-out");
+speedInput.addEventListener("input", () => { speed = +speedInput.value; speedOut.textContent = speed + "x"; });
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: "https://tiles.openfreemap.org/styles/liberty",
+  center: [-0.1172, 51.5083], zoom: 15.5, pitch: 55, bearing: -20,
+  maxPitch: 75, hash: true, attributionControl: { compact: true,
+    customAttribution: "Agents illustrative · © OpenStreetMap contributors · OpenFreeMap" },
+});
+
+const overlay = new deck.MapboxOverlay({ interleaved: true, layers: [] });
+map.addControl(overlay);
+
+// Ground-level layers sit under the 3D buildings and never z-fight with roads.
+const GROUND = { beforeId: "building-3d", parameters: { depthCompare: "always", depthWriteEnabled: false } };
+
+function plazaLayers() {
+  if (!EXTRAS.plaza) return [];
+  return [
+    new deck.GeoJsonLayer({ id: "plaza", data: EXTRAS.plaza, filled: true, stroked: false,
+      getFillColor: [233, 214, 186, 235], ...GROUND }),
+    new deck.GeoJsonLayer({ id: "lane", data: EXTRAS.lane, filled: true, stroked: false,
+      getFillColor: [205, 190, 168, 255], ...GROUND }),
+    new deck.GeoJsonLayer({ id: "cycle", data: EXTRAS.cycle, filled: true, stroked: false,
+      getFillColor: [150, 196, 214, 255], ...GROUND }),
+  ];
+}
+
+function tripsLayer(kind, t, opacity) {
+  return new deck.TripsLayer({
+    id: "trips-" + kind, data: byKind[kind], currentTime: t,
+    getPath: d => d.p, getTimestamps: d => d.t, getColor: COLORS[kind],
+    widthMinPixels: kind === "u" ? 5 : 2.5, capRounded: true, jointRounded: true,
+    trailLength: kind === "u" ? 25 : 40, fadeTrail: true, opacity, ...GROUND,
+  });
+}
+
+// ── Street zoom: 3D people, bikes and buses at their current positions ──
+const FIGURE_ZOOM = 17;
+const MAX_FIGURES = 400;
+let modelFailed = false;
+const M_PER_DEG_LAT = 111320;
+const M_PER_DEG_LON = 111320 * Math.cos(51.508 * Math.PI / 180);
+
+function positionsAt(t, kind) {
+  const out = [];
+  for (const d of byKind[kind]) {
+    const ts = d.t, n = ts.length;
+    if (t < ts[0] || t > ts[n - 1]) continue;
+    let lo = 0, hi = n - 1;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (ts[mid] <= t) lo = mid; else hi = mid; }
+    const f = ts[hi] === ts[lo] ? 0 : (t - ts[lo]) / (ts[hi] - ts[lo]);
+    const a = d.p[lo], b = d.p[hi];
+    const dx = (b[0] - a[0]) * M_PER_DEG_LON, dy = (b[1] - a[1]) * M_PER_DEG_LAT;
+    out.push({ pos: [a[0] + f * (b[0] - a[0]), a[1] + f * (b[1] - a[1])],
+               heading: Math.atan2(dx, dy) * 180 / Math.PI, k: kind, i: d.i });   // compass bearing
+  }
+  return out;
+}
+
+function nearestToCentre(items, n) {
+  if (items.length <= n) return items;
+  const c = map.getCenter();
+  const d2 = p => ((p.pos[0] - c.lng) * M_PER_DEG_LON) ** 2 + ((p.pos[1] - c.lat) * M_PER_DEG_LAT) ** 2;
+  return items.map(p => [d2(p), p]).sort((x, y) => x[0] - y[0]).slice(0, n).map(x => x[1]);
+}
+
+function busFootprint(p) {  // 2.5 m x 11 m rectangle, rotated to the heading
+  const h = p.heading * Math.PI / 180, fx = Math.sin(h), fy = Math.cos(h);
+  const corners = [[-1.25, -5.5], [1.25, -5.5], [1.25, 5.5], [-1.25, 5.5]];
+  return corners.map(([x, y]) => [
+    p.pos[0] + (x * fy + y * fx) / M_PER_DEG_LON,
+    p.pos[1] + (-x * fx + y * fy) / M_PER_DEG_LAT,
+  ]);
+}
+
+function lightColor(light, t) {
+  const green = (EXTRAS.pulses || []).some(([s, e, dir]) => dir === light.dir && t >= s && t <= e);
+  return green ? [40, 170, 80] : [204, 51, 17];
+}
+
+function lightLayers(t) {
+  if (!EXTRAS.lights) return [];
+  return [
+    new deck.ColumnLayer({ id: "lights", data: EXTRAS.lights, getPosition: d => d.pos, radius: 1.2,
+      diskResolution: 12, extruded: true, getElevation: 4.5, getFillColor: d => lightColor(d, t),
+      updateTriggers: { getFillColor: Math.floor(t) } }),
+    new deck.ScatterplotLayer({ id: "lights-dot", data: EXTRAS.lights, getPosition: d => d.pos,
+      radiusMinPixels: 5, getRadius: 1.5, stroked: true, getLineColor: [23, 20, 18], lineWidthMinPixels: 1,
+      getFillColor: d => lightColor(d, t), updateTriggers: { getFillColor: Math.floor(t) } }),
+  ];
+}
+
+// deck plays glTF animations off its own real-time timeline: phase = (timeline - startTime) * speed.
+// Pin the phase to the sim clock instead, so legs and pedals follow the speed slider and the tour
+// rather than whatever deck's timeline is doing under the map.
+function animAt(rate, offset = 0) {
+  const tl = (overlay._deck?.animationLoop?.timeline?.getTime() ?? 0) / 1000;  // what draw() reads
+  return { "*": { speed: 1, startTime: tl - (simTime * rate + offset) } };
+}
+
+function figureLayers(t) {
+  const everyone = positionsAt(t, "w");
+  const spotter = everyone.filter(d => d.i === EXTRAS.striped);  // never culled from the crowd
+  const walkers = nearestToCentre(everyone.filter(d => d.i !== EXTRAS.striped), MAX_FIGURES);
+  const bikes = positionsAt(t, "b"), buses = positionsAt(t, "u");
+  // Every instance in a ScenegraphLayer shares one pose, so walkers are split into
+  // three groups a third of a cycle apart: neighbours step out of time, not in lockstep.
+  const people = [0, 1, 2].map(g => new deck.ScenegraphLayer({
+    id: "people-" + g, data: walkers.filter(d => d.i % 3 === g), scenegraph: EXTRAS.models["walker_" + g],
+    getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: WALKER_SCALE,
+    _animations: animAt(GAIT, g / 3), _lighting: "pbr", getColor: [255, 255, 255],  // 1 s cycle: a third apart
+    onError: () => { modelFailed = true; return true; } }));
+  return [
+    ...people,
+    // one person in a red-and-white striped jumper and bobble hat, somewhere in the crowd
+    new deck.ScenegraphLayer({ id: "spotter", data: spotter, scenegraph: EXTRAS.models.striped,
+      getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: WALKER_SCALE,
+      _animations: animAt(GAIT, 0.5), _lighting: "pbr", getColor: [255, 255, 255],
+      onError: () => { modelFailed = true; return true; } }),
+    // procedural rider + bike (models.py): wheels and crank turn, legs follow the pedals
+    new deck.ScenegraphLayer({ id: "bikes", data: bikes, scenegraph: EXTRAS.models.cyclist,
+      getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: 1.6,
+      _animations: animAt(PEDAL), _lighting: "pbr", getColor: [255, 255, 255],
+      onError: () => { modelFailed = true; return true; } }),
+    new deck.PolygonLayer({ id: "buses", data: buses, getPolygon: busFootprint, extruded: true,
+      getElevation: 4.2, getFillColor: COLORS.u, getLineColor: [23, 20, 18] }),
+  ];
+}
+
+// ── Planters and trees on the bridge (Quaternius Stylized Nature MegaKit, CC0) ──
+const GREEN_MODELS = [...new Set((EXTRAS.greenery || []).map(d => d.m))];
+let greenLayers = null;
+function greeneryLayers() {
+  if (greenLayers || !EXTRAS.planters) return greenLayers || [];
+  greenLayers = [
+    new deck.PolygonLayer({ id: "planters", data: EXTRAS.planters.features, getPolygon: f => f.geometry.coordinates,
+      extruded: true, getElevation: 0.6, getFillColor: [196, 186, 170], material: { ambient: 0.5, diffuse: 0.6 } }),
+    ...GREEN_MODELS.map(m => new deck.ScenegraphLayer({
+      id: "green-" + m, data: EXTRAS.greenery.filter(d => d.m === m), scenegraph: EXTRAS.models[m],
+      getPosition: d => [d.p[0], d.p[1], 0.6], getOrientation: d => [0, d.y, 90], getScale: d => [d.s, d.s, d.s],
+      _lighting: "pbr", onError: () => true })),
+  ];
+  return greenLayers;
+}
+
+function buildLayers(t, zoom) {
+  const street = !MOBILE && !modelFailed && zoom >= FIGURE_ZOOM;
+  return [
+    ...plazaLayers(),
+    tripsLayer("w", t, street ? 0.22 : 0.9), tripsLayer("b", t, street ? 0.3 : 0.95), tripsLayer("u", t, 1),
+    ...lightLayers(t),
+    ...greeneryLayers(),
+    ...(street ? figureLayers(t) : []),
+  ];
+}
+
+function clockText(t) {
+  const m = Math.floor(t / 60), s = Math.floor(t % 60);
+  return `${m}:${String(s).padStart(2, "0")} of a ${LOOP_S / 60}-minute cycle`;
+}
+
+let last = 0;
+function frame() {
+  tick();
+  const t = currentTime();
+  overlay.setProps({ layers: buildLayers(t, map.getZoom()) });
+  if (performance.now() - last > 500) { document.getElementById("clock").textContent = clockText(t); last = performance.now(); }
+  requestAnimationFrame(frame);
+}
+map.on("load", () => {
+  // a car-free corridor doesn't need road shields or one-way arrows
+  for (const l of map.getStyle().layers) {
+    if (/shield|one_way_arrow/.test(l.id)) map.setLayoutProperty(l.id, "visibility", "none");
+  }
+  requestAnimationFrame(frame);
+  // always: the map writes the view into the URL hash, so a refresh looks just like a shared link
+  if (CARDS.length) playTour(); else setButtons();
+});
+
+// ── Tour = the About cards, auto-advancing ──
+// Each card flies to the view it describes; a new card every few seconds. Touching the
+// map, or clicking back / next, stops the auto-advance; the arrows then step by hand.
+const skipBtn = document.getElementById("skip"), replayBtn = document.getElementById("replay");
+const about = document.getElementById("about"), aboutOpen = document.getElementById("about-open");
+const CARDS = TOUR.filter(k => k.caption);
+const STEP_MS = 3000, FLY_MS = 2500;  // a new card every 3 s; the camera arrives just before the next
+let card = 0, touring = false, stepTimer = null;
+
+function showCard(i, duration) {
+  card = (i + CARDS.length) % CARDS.length;
+  const k = CARDS[card];
+  document.getElementById("about-text").textContent = k.caption;
+  document.getElementById("about-count").textContent = (card + 1) + " / " + CARDS.length;
+  if (duration) map.flyTo({ center: k.center, zoom: k.zoom, pitch: k.pitch, bearing: k.bearing,
+                            duration, curve: 1.2, essential: true });
+}
+function openAbout() { about.hidden = false; aboutOpen.hidden = true; }
+function setButtons() { skipBtn.hidden = !touring; replayBtn.hidden = touring; }
+
+function advance() {
+  if (!touring) return;
+  if (card + 1 >= CARDS.length) { stopTour(); return; }  // stay on the last card
+  showCard(card + 1, FLY_MS);
+  stepTimer = setTimeout(advance, STEP_MS);
+}
+function playTour() {
+  if (!CARDS.length) return;
+  touring = true; setButtons(); openAbout();
+  const k = CARDS[0];
+  map.jumpTo({ center: k.center, zoom: k.zoom - 0.6, pitch: k.pitch, bearing: k.bearing });
+  showCard(0, FLY_MS);
+  stepTimer = setTimeout(advance, STEP_MS);
+}
+function stopTour() {
+  if (!touring) return;
+  touring = false; clearTimeout(stepTimer); setButtons();
+}
+
+document.getElementById("about-prev").onclick = () => { stopTour(); showCard(card - 1, FLY_MS); };
+document.getElementById("about-next").onclick = () => { stopTour(); showCard(card + 1, FLY_MS); };
+document.getElementById("about-close").onclick = () => { stopTour(); about.hidden = true; aboutOpen.hidden = false; };
+aboutOpen.onclick = () => { openAbout(); showCard(card, 0); };
+skipBtn.onclick = () => { stopTour(); map.stop(); };
+replayBtn.onclick = playTour;
+// any touch of the map hands control to the viewer straight away
+for (const ev of ["mousedown", "wheel", "touchstart"])
+  map.getCanvasContainer().addEventListener(ev, () => { if (touring) { stopTour(); map.stop(); } }, { passive: true });
+</script>
+</body>
+</html>

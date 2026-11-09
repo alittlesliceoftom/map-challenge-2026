@@ -7,6 +7,10 @@ folium>=0.17        # interactive web maps (Leaflet), no account needed
 geopandas>=1.0      # geographic data tables: read/clean/join shapes
 matplotlib>=3.8     # static maps and charts
 pandas>=2.2
+osmnx>=2.0          # street network + buildings from OpenStreetMap (day 8)
+shapely>=2.0
+numpy>=1.26
+scipy>=1.11         # osmnx needs it for nearest-node search
 
 # Checking the builder works
 pytest>=8
