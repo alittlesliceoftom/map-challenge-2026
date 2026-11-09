@@ -21,7 +21,7 @@ from shapely.ops import unary_union
 
 from agents import LOOP_S, PULSES, bus_trips, cyclist_trips, to_deck_json, walker_trips, wrap_loop
 from geometry import CRS, WALK_ROUTES, load_corridor, place_planters
-from models import cyclist_glb, walker_glb, walker_stride
+from models import bus_glb, cyclist_glb, walker_glb, walker_stride
 
 # three walker variants, one per animation phase group on the page
 SHIRTS = [(0.93, 0.47, 0.20, 1), (0.16, 0.55, 0.60, 1), (0.85, 0.70, 0.25, 1)]
@@ -117,7 +117,7 @@ def main() -> None:
         "greenery": _greenery(planters, np.random.default_rng(9)),
         "walker_stride": round(walker_stride(), 3),
         "striped": spotter,
-        "models": {"cyclist": _data_uri(cyclist_glb()),
+        "models": {"cyclist": _data_uri(cyclist_glb()), "bus": _data_uri(bus_glb()),
                    **{f"walker_{k}": _data_uri(walker_glb(shirt)) for k, shirt in enumerate(SHIRTS)},
                    "striped": _data_uri(walker_glb(striped=True)),
                    **{f.stem: _data_uri(f.read_bytes()) for f in sorted((HERE / "models").glob("*.glb"))}},

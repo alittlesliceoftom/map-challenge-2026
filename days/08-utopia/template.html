@@ -164,15 +164,6 @@ function nearestToCentre(items, n) {
   return items.map(p => [d2(p), p]).sort((x, y) => x[0] - y[0]).slice(0, n).map(x => x[1]);
 }
 
-function busFootprint(p) {  // 2.5 m x 11 m rectangle, rotated to the heading
-  const h = p.heading * Math.PI / 180, fx = Math.sin(h), fy = Math.cos(h);
-  const corners = [[-1.25, -5.5], [1.25, -5.5], [1.25, 5.5], [-1.25, 5.5]];
-  return corners.map(([x, y]) => [
-    p.pos[0] + (x * fy + y * fx) / M_PER_DEG_LON,
-    p.pos[1] + (-x * fx + y * fy) / M_PER_DEG_LAT,
-  ]);
-}
-
 function lightColor(light, t) {
   const green = (EXTRAS.pulses || []).some(([s, e, dir]) => dir === light.dir && t >= s && t <= e);
   return green ? [40, 170, 80] : [204, 51, 17];
@@ -222,8 +213,10 @@ function figureLayers(t) {
       getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: 1.6,
       _animations: animAt(PEDAL), _lighting: "pbr", getColor: [255, 255, 255],
       onError: () => { modelFailed = true; return true; } }),
-    new deck.PolygonLayer({ id: "buses", data: buses, getPolygon: busFootprint, extruded: true,
-      getElevation: 4.2, getFillColor: COLORS.u, getLineColor: [23, 20, 18] }),
+    // procedural red double-decker (models.py)
+    new deck.ScenegraphLayer({ id: "buses", data: buses, scenegraph: EXTRAS.models.bus,
+      getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: 1,
+      _lighting: "pbr", getColor: [255, 255, 255], onError: () => { modelFailed = true; return true; } }),
   ];
 }
 
