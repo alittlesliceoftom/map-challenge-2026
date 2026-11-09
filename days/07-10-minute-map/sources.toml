@@ -1,0 +1,37 @@
+# Where does the data come from? One [[source]] block per dataset.
+
+[[source]]
+name = "Kenya DHS 2022: household electricity, mobile money use, bank accounts by county"
+url = "https://api.dhsprogram.com/rest/dhs/data?indicatorIds=HC_ELEC_H_ELC,CO_MOBB_W_MBF,CO_MOBB_M_MBF,CO_MOBB_W_BNK,CO_MOBB_M_BNK&surveyIds=KE2022DHS&breakdown=subnational&f=json"
+from = "Kenya National Bureau of Statistics and ICF, The DHS Program (via the DHS API)"
+what = "47 counties. HC_ELEC_H_ELC: % of households with electricity. CO_MOBB_*_MBF: % of women / men 15-49 who used a mobile phone for financial transactions in the past 12 months. CO_MOBB_*_BNK: % with a bank account. Women and men are averaged without weighting"
+time = "Survey fieldwork Feb-Jul 2022; downloaded 9 Nov 2026"
+resolution = "By county; survey estimates with sampling error, and some small counties have wide confidence intervals"
+licence = "DHS Program terms of use; credit The DHS Program and KNBS (credited on the map)"
+
+[[source]]
+name = "Kenya county boundaries (ADM1)"
+url = "https://github.com/wmgeolab/geoBoundaries/raw/9469f09/releaseData/gbOpen/KEN/ADM1/geoBoundaries-KEN-ADM1_simplified.geojson"
+from = "geoBoundaries (William & Mary geoLab)"
+what = "47 county polygons, simplified"
+time = "geoBoundaries release at commit 9469f09; downloaded 9 Nov 2026"
+resolution = "Simplified boundaries, fine at country zoom"
+licence = "CC BY 4.0 (credited on the map)"
+
+[[source]]
+name = "Kenya Electricity Transmission Network"
+url = "https://datacatalog.worldbank.org/search/dataset/0040440"
+from = "World Bank Data Catalog (Kenya Electricity Transmission Company / KETRACO data)"
+what = "48 lines from 33 kV to 330 kV; only the 43 marked Existing are drawn (planned and under-study lines are dropped). The low-voltage distribution network is not included"
+time = "Date of the network not stated in the file; downloaded 9 Nov 2026"
+resolution = "Schematic line routes, often straight segments between substations"
+licence = "CC BY 4.0 (World Bank Data Catalog); credited on the map"
+
+[[source]]
+name = "Kenya DHS 2022: people lit mainly by solar, by county"
+url = "https://api.dhsprogram.com/rest/dhs/data?indicatorIds=HC_LTFL_P_SOL&surveyIds=KE2022DHS&breakdown=subnational&f=json"
+from = "Kenya National Bureau of Statistics and ICF, The DHS Program (via the DHS API)"
+what = "47 counties. HC_LTFL_P_SOL: % of the de jure population in households whose main lighting is a solar lantern. Solar home systems such as M-KOPA most likely land here rather than under 'electricity'"
+time = "Survey fieldwork Feb-Jul 2022; downloaded 9 Nov 2026"
+resolution = "By county; survey estimates with sampling error"
+licence = "DHS Program terms of use; credit The DHS Program and KNBS (credited on the map)"
