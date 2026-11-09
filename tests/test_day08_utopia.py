@@ -429,3 +429,12 @@ def test_tour_ends_close_on_the_bridge():
     assert last["zoom"] >= 19.5
     lon, lat = last["center"]
     assert -0.1170 < lon < -0.1135 and 51.5055 < lat < 51.5085
+
+
+def test_tour_captions_explain_the_change():
+    from map import TOUR
+    assert all(k.get("caption") for k in TOUR)
+    text = " ".join(k["caption"] for k in TOUR).lower()
+    for phrase in ("four lanes", "pedestrian", "two-way cycle", "bus lane", "one direction at a time"):
+        assert phrase in text, phrase
+    assert all(len(k["caption"]) <= 140 for k in TOUR)  # readable mid-flight

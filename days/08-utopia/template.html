@@ -30,6 +30,14 @@
   #speed { display: flex; align-items: center; gap: 6px; }
   #speed input { width: 110px; accent-color: var(--ink); }
   #speed output { font-variant-numeric: tabular-nums; min-width: 3.2em; }
+  #about { left: 50%; bottom: 112px; transform: translateX(-50%); width: min(440px, calc(100% - 48px));
+           box-sizing: border-box; padding: 10px 14px 8px; }
+  #about h2 { font-size: 12px; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  #about-text { font-size: 16px; font-weight: 600; margin: 0 0 8px; min-height: 2.7em; }
+  #about nav { display: flex; align-items: center; gap: 8px; }
+  #about nav button { padding: 2px 12px; font-size: 16px; }
+  #about-count { font-variant-numeric: tabular-nums; color: var(--muted); flex: 1; text-align: center; }
+  #about-close { position: absolute; top: 4px; right: 6px; border: none; padding: 2px 8px; font-size: 16px; }
   .maplibregl-ctrl-attrib { font-size: 10px; }
   @media (max-width: 700px) { #title { max-width: calc(100% - 150px); } #title p { display: none; } #title h1 { font-size: 15px; } }
 </style>
@@ -40,9 +48,17 @@
   <h1>Waterloo Bridge, given back</h1>
   <p>No cars from Waterloo to Covent Garden. People wander across the old road; bikes get their own two-way track, and one signalled lane carries the occasional bus convoy.</p>
 </div>
+<div id="about" class="panel" hidden>
+  <h2>About</h2>
+  <button id="about-close" aria-label="Close">&times;</button>
+  <p id="about-text" aria-live="polite"></p>
+  <nav><button id="about-prev" aria-label="Back">&larr;</button><span id="about-count"></span>
+       <button id="about-next" aria-label="Next">&rarr;</button></nav>
+</div>
 <div id="controls" class="panel">
   <button id="skip">Skip tour</button>
   <button id="replay" hidden>Replay tour</button>
+  <button id="about-open" hidden>About</button>
 </div>
 <div id="legend" class="panel">
   <span style="--c:#ee7733">People walking</span>
@@ -264,7 +280,25 @@ map.on("load", () => {
 // ── Intro tour ──
 const skipBtn = document.getElementById("skip"), replayBtn = document.getElementById("replay");
 let touring = false, step = 0;
-function showReplay() { skipBtn.hidden = true; replayBtn.hidden = false; }
+function showReplay() { skipBtn.hidden = true; replayBtn.hidden = false; aboutOpen.hidden = false; }
+
+// ── About: the tour's story as cards; back / next flies to the view each one describes ──
+const about = document.getElementById("about"), aboutOpen = document.getElementById("about-open");
+const CARDS = TOUR.filter(k => k.caption);
+let card = 0;
+function showCard(i, fly) {
+  card = (i + CARDS.length) % CARDS.length;
+  const k = CARDS[card];
+  document.getElementById("about-text").textContent = k.caption;
+  document.getElementById("about-count").textContent = (card + 1) + " / " + CARDS.length;
+  if (fly) map.flyTo({ center: k.center, zoom: k.zoom, pitch: k.pitch, bearing: k.bearing,
+                       duration: 2500, curve: 1.2, essential: true });
+}
+function openAbout() { if (!CARDS.length) return; about.hidden = false; aboutOpen.hidden = true; showCard(card, false); }
+document.getElementById("about-prev").onclick = () => showCard(card - 1, true);
+document.getElementById("about-next").onclick = () => showCard(card + 1, true);
+document.getElementById("about-close").onclick = () => { about.hidden = true; aboutOpen.hidden = false; };
+aboutOpen.onclick = openAbout;
 function nextStep() {
   if (!touring) return;
   if (step >= TOUR.length) { stopTour(); return; }
@@ -274,14 +308,14 @@ function nextStep() {
               duration: k.duration_ms, curve: 1.2, essential: true });
 }
 function playTour() {
-  touring = true; step = 0; skipBtn.hidden = false; replayBtn.hidden = true;
+  touring = true; step = 0; about.hidden = true; aboutOpen.hidden = true; skipBtn.hidden = false; replayBtn.hidden = true;
   const k = TOUR[0];
   map.jumpTo({ center: k.center, zoom: k.zoom - 0.6, pitch: k.pitch, bearing: k.bearing });
   nextStep();
 }
 function stopTour() {
   if (!touring) return;
-  touring = false; map.off("moveend", nextStep); map.stop(); showReplay();
+  touring = false; map.off("moveend", nextStep); map.stop(); showReplay(); openAbout();
 }
 skipBtn.onclick = stopTour;
 replayBtn.onclick = playTour;
