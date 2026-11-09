@@ -35,6 +35,9 @@ COLOURS = {
     "helmet": (0.95, 0.95, 0.95, 1), "hair": (0.25, 0.17, 0.12, 1),
     "red": (0.86, 0.10, 0.12, 1), "white": (0.97, 0.97, 0.97, 1), "jeans": (0.18, 0.32, 0.62, 1),
     "glasses": (0.08, 0.08, 0.08, 1),
+    "bus_red": (0.80, 0.06, 0.07, 1), "glass": (0.09, 0.12, 0.16, 1), "roof": (0.86, 0.86, 0.84, 1),
+    "skirt": (0.12, 0.12, 0.12, 1), "destination": (1.00, 0.78, 0.18, 1), "lamp": (1.00, 0.97, 0.85, 1),
+    "tail": (0.55, 0.02, 0.02, 1),
 }
 
 # Walker geometry (metres): about 1.7 m tall
@@ -353,6 +356,51 @@ def walker_glb(shirt=(0.93, 0.47, 0.20, 1), striped: bool = False) -> bytes:
         else:
             vals = [_qz(p[name]) for p in poses]
         b.animate(node, "rotation", t, np.array(vals))
+    return b.glb()
+
+
+def bus_glb() -> bytes:
+    """A static low-poly red double-decker, 11 m x 2.5 m x 4.4 m, front at +X.
+    +Z is the offside (right), so the doors are on -Z for UK kerbside boarding."""
+    b = _Builder()
+    box = _box()
+    m = {k: b.mesh(box, k) for k in ("bus_red", "glass", "roof", "skirt", "destination", "lamp", "tail", "metal")}
+    b.g["materials"][b.mat["glass"]]["pbrMetallicRoughness"].update(metallicFactor=0.3, roughnessFactor=0.25)
+    tyre = b.mesh(_ring(0.5, 0.30, 0.30), "tyre")
+    root = b.node("bus")
+    L, W = 11.0, 2.5
+
+    def part(name, mesh, x0, x1, y0, y1, w):
+        b.node(name, root, mesh=m[mesh], translation=[(x0 + x1) / 2, (y0 + y1) / 2, 0],
+               scale=[x1 - x0, y1 - y0, w])
+
+    def side(name, mesh, x0, x1, y0, y1, z):
+        b.node(name, root, mesh=m[mesh], translation=[(x0 + x1) / 2, (y0 + y1) / 2, z],
+               scale=[x1 - x0, y1 - y0, 0.04])
+
+    part("body", "bus_red", -L / 2, L / 2, 0.35, 4.30, W)
+    part("skirt", "skirt", -L / 2 - 0.02, L / 2 + 0.02, 0.30, 0.55, W + 0.02)
+    part("roof", "roof", -L / 2 + 0.1, L / 2 - 0.1, 4.30, 4.40, W - 0.1)
+    # window bands run round the ends too, broken up by red pillars
+    part("lower_windows", "glass", -L / 2 - 0.02, L / 2 + 0.02, 1.25, 2.15, W + 0.04)
+    part("upper_windows", "glass", -L / 2 - 0.02, L / 2 + 0.02, 2.75, 3.80, W + 0.04)
+    for x in np.arange(-L / 2 + 1.4, L / 2 - 0.6, 1.45):
+        part("pillar", "bus_red", x - 0.07, x + 0.07, 1.25, 2.15, W + 0.08)
+        part("pillar", "bus_red", x - 0.07, x + 0.07, 2.75, 3.80, W + 0.08)
+    # front: tall windscreen, destination blind between the decks, headlights
+    part("windscreen", "glass", L / 2 - 0.02, L / 2 + 0.04, 0.95, 2.15, W - 0.25)
+    part("destination", "destination", L / 2 - 0.02, L / 2 + 0.05, 2.30, 2.60, 1.60)
+    for z in (-0.95, 0.95):
+        b.node("headlight", root, mesh=m["lamp"], translation=[L / 2 + 0.03, 0.72, z], scale=[0.04, 0.16, 0.30])
+        b.node("taillight", root, mesh=m["tail"], translation=[-L / 2 - 0.03, 0.80, z], scale=[0.04, 0.30, 0.20])
+    # nearside doors: front (by the driver) and middle
+    for x0, x1 in ((3.55, 4.65), (-0.55, 0.55)):
+        side("door", "glass", x0, x1, 0.45, 2.15, -W / 2 - 0.03)
+    # wheels (rings, so unscaled) with hubs
+    for x in (3.85, -2.95):
+        for z in (-W / 2 + 0.16, W / 2 - 0.16):
+            b.node("wheel", root, mesh=tyre, translation=[x, 0.5, z])
+            b.node("hub", root, mesh=m["metal"], translation=[x, 0.5, z], scale=[0.42, 0.42, 0.32])
     return b.glb()
 
 

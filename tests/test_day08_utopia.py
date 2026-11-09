@@ -438,3 +438,25 @@ def test_tour_captions_explain_the_change():
     for phrase in ("four lanes", "pedestrian", "two-way cycle", "bus lane", "one direction at a time"):
         assert phrase in text, phrase
     assert all(len(k["caption"]) <= 140 for k in TOUR)  # readable mid-flight
+
+
+# ── Bus: a low-poly red double-decker ───────────────────────────────────────
+def _box_bounds(g: dict) -> np.ndarray:
+    """Extent of the unrotated box nodes (unit-cube meshes scaled and placed)."""
+    pts = [np.array(n["translation"]) + s * np.array(n["scale"]) / 2
+           for n in g["nodes"] if "mesh" in n and "rotation" not in n and "scale" in n for s in (-1, 1)]
+    return np.array([np.min(pts, 0), np.max(pts, 0)])
+
+
+def test_bus_glb_is_a_double_decker_bus_sized():
+    from models import bus_glb
+    g = _gltf(bus_glb())
+    lo, hi = _box_bounds(g)
+    length, height, width = hi - lo
+    assert 10.5 < length < 11.5 and 4.0 < height < 4.6 and 2.4 < width < 2.7
+    assert lo[1] >= 0  # sits on the road
+    names = {n.get("name") for n in g["nodes"]}
+    assert {"lower_windows", "upper_windows", "destination", "wheel"} <= names
+    assert sum(n == "wheel" for n in (x.get("name") for x in g["nodes"])) == 4
+    colours = {m["name"] for m in g["materials"]}
+    assert {"bus_red", "glass"} <= colours
