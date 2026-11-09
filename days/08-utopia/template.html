@@ -279,13 +279,13 @@ map.on("load", () => {
 });
 
 // ── Tour = the About cards, auto-advancing ──
-// Each card flies to the view it describes, holds for a moment, then moves on. Touching the
+// Each card flies to the view it describes; a new card every few seconds. Touching the
 // map, or clicking back / next, stops the auto-advance; the arrows then step by hand.
 const skipBtn = document.getElementById("skip"), replayBtn = document.getElementById("replay");
 const about = document.getElementById("about"), aboutOpen = document.getElementById("about-open");
 const CARDS = TOUR.filter(k => k.caption);
-const DWELL_MS = 2500;  // time on each view once the camera arrives
-let card = 0, touring = false, dwellTimer = null;
+const STEP_MS = 3000, FLY_MS = 2500;  // a new card every 3 s; the camera arrives just before the next
+let card = 0, touring = false, stepTimer = null;
 
 function showCard(i, duration) {
   card = (i + CARDS.length) % CARDS.length;
@@ -298,30 +298,27 @@ function showCard(i, duration) {
 function openAbout() { about.hidden = false; aboutOpen.hidden = true; }
 function setButtons() { skipBtn.hidden = !touring; replayBtn.hidden = touring; }
 
-function onArrive() {
+function advance() {
   if (!touring) return;
-  dwellTimer = setTimeout(() => {
-    if (!touring) return;
-    if (card + 1 >= CARDS.length) { stopTour(); return; }  // stay on the last card
-    map.once("moveend", onArrive);
-    showCard(card + 1, CARDS[card + 1].duration_ms);
-  }, DWELL_MS);
+  if (card + 1 >= CARDS.length) { stopTour(); return; }  // stay on the last card
+  showCard(card + 1, FLY_MS);
+  stepTimer = setTimeout(advance, STEP_MS);
 }
 function playTour() {
   if (!CARDS.length) return;
   touring = true; setButtons(); openAbout();
   const k = CARDS[0];
   map.jumpTo({ center: k.center, zoom: k.zoom - 0.6, pitch: k.pitch, bearing: k.bearing });
-  map.once("moveend", onArrive);
-  showCard(0, k.duration_ms);
+  showCard(0, FLY_MS);
+  stepTimer = setTimeout(advance, STEP_MS);
 }
 function stopTour() {
   if (!touring) return;
-  touring = false; clearTimeout(dwellTimer); map.off("moveend", onArrive); setButtons();
+  touring = false; clearTimeout(stepTimer); setButtons();
 }
 
-document.getElementById("about-prev").onclick = () => { stopTour(); showCard(card - 1, 2500); };
-document.getElementById("about-next").onclick = () => { stopTour(); showCard(card + 1, 2500); };
+document.getElementById("about-prev").onclick = () => { stopTour(); showCard(card - 1, FLY_MS); };
+document.getElementById("about-next").onclick = () => { stopTour(); showCard(card + 1, FLY_MS); };
 document.getElementById("about-close").onclick = () => { stopTour(); about.hidden = true; aboutOpen.hidden = false; };
 aboutOpen.onclick = () => { openAbout(); showCard(card, 0); };
 skipBtn.onclick = () => { stopTour(); map.stop(); };

@@ -33,22 +33,22 @@ N_WALKERS, N_CYCLISTS, N_BUSES_PER_PULSE = 1200, 90, 6
 # The intro fly-through: river -> bridge -> Lancaster Place -> Strand east -> back west
 # -> Covent Garden piazza -> overview. About 40 s.
 TOUR: list[dict] = [
-    {"center": [-0.11600, 51.50700], "zoom": 15.4, "pitch": 50, "bearing": -25, "duration_ms": 4000,
+    {"center": [-0.11600, 51.50700], "zoom": 15.4, "pitch": 50, "bearing": -25,
      "caption": "Waterloo Bridge to Covent Garden, with the cars taken out."},
-    {"center": [-0.11635, 51.50795], "zoom": 18.3, "pitch": 62, "bearing": -30, "duration_ms": 7000,
+    {"center": [-0.11635, 51.50795], "zoom": 18.3, "pitch": 62, "bearing": -30,
      "caption": "Waterloo Bridge used to carry four lanes of traffic. Now it is pedestrianised: the whole deck is for walking."},
-    {"center": [-0.11895, 51.51080], "zoom": 18.0, "pitch": 60, "bearing": -35, "duration_ms": 6000,
+    {"center": [-0.11895, 51.51080], "zoom": 18.0, "pitch": 60, "bearing": -35,
      "caption": "The four lanes become two: a two-way cycle track (blue) and a single bus lane."},
-    {"center": [-0.11660, 51.51240], "zoom": 17.8, "pitch": 60, "bearing": 60, "duration_ms": 7000,
+    {"center": [-0.11660, 51.51240], "zoom": 17.8, "pitch": 60, "bearing": 60,
      "caption": "The bus lane runs one direction at a time. Lights at each end let a short convoy through, then swap."},
-    {"center": [-0.12030, 51.51200], "zoom": 17.6, "pitch": 58, "bearing": -60, "duration_ms": 7000,
+    {"center": [-0.12030, 51.51200], "zoom": 17.6, "pitch": 58, "bearing": -60,
      "caption": "The Strand is pedestrian too, all the way west."},
-    {"center": [-0.12220, 51.51180], "zoom": 18.1, "pitch": 55, "bearing": -100, "duration_ms": 5000,
+    {"center": [-0.12220, 51.51180], "zoom": 18.1, "pitch": 55, "bearing": -100,
      "caption": "And on into Covent Garden."},
-    {"center": [-0.11800, 51.50960], "zoom": 15.9, "pitch": 55, "bearing": -25, "duration_ms": 6000,
+    {"center": [-0.11800, 51.50960], "zoom": 15.9, "pitch": 55, "bearing": -25,
      "caption": "Between convoys the bus lane sits empty, and people cross it."},
     # and back down onto the middle of the bridge, close enough to see people walking
-    {"center": [-0.11520, 51.50680], "zoom": 20.2, "pitch": 65, "bearing": -30, "duration_ms": 7000,
+    {"center": [-0.11520, 51.50680], "zoom": 20.2, "pitch": 65, "bearing": -30,
      "caption": "Trees in planters line the deck, and people wander where the traffic used to be."},
 ]
 
