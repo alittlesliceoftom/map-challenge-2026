@@ -40,6 +40,8 @@ TOUR: list[dict] = [
     {"center": [-0.12030, 51.51200], "zoom": 17.6, "pitch": 58, "bearing": -60, "duration_ms": 7000},
     {"center": [-0.12220, 51.51180], "zoom": 18.1, "pitch": 55, "bearing": -100, "duration_ms": 5000},
     {"center": [-0.11800, 51.50960], "zoom": 15.9, "pitch": 55, "bearing": -25, "duration_ms": 6000},
+    # and back down onto the middle of the bridge, close enough to see people walking
+    {"center": [-0.11520, 51.50680], "zoom": 20.2, "pitch": 65, "bearing": -30, "duration_ms": 7000},
 ]
 
 

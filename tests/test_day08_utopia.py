@@ -420,3 +420,12 @@ def test_striped_walker_has_hat_glasses_and_stripes():
     assert {"red", "white", "jeans"} <= set(colours)
     (anim,) = g["animations"]  # still walks
     assert len(anim["channels"]) >= 7
+
+
+def test_tour_ends_close_on_the_bridge():
+    # finish at street zoom (figures draw from zoom 17) in the middle of Waterloo Bridge
+    from map import TOUR
+    last = TOUR[-1]
+    assert last["zoom"] >= 19.5
+    lon, lat = last["center"]
+    assert -0.1170 < lon < -0.1135 and 51.5055 < lat < 51.5085
