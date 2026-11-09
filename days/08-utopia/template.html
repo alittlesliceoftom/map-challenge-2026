@@ -184,7 +184,9 @@ function animAt(rate, offset = 0) {
 }
 
 function figureLayers(t) {
-  const walkers = nearestToCentre(positionsAt(t, "w"), MAX_FIGURES);
+  const everyone = positionsAt(t, "w");
+  const spotter = everyone.filter(d => d.i === EXTRAS.striped);  // never culled from the crowd
+  const walkers = nearestToCentre(everyone.filter(d => d.i !== EXTRAS.striped), MAX_FIGURES);
   const bikes = positionsAt(t, "b"), buses = positionsAt(t, "u");
   // Every instance in a ScenegraphLayer shares one pose, so walkers are split into
   // three groups a third of a cycle apart: neighbours step out of time, not in lockstep.
@@ -195,6 +197,11 @@ function figureLayers(t) {
     onError: () => { modelFailed = true; return true; } }));
   return [
     ...people,
+    // one person in a red-and-white striped jumper and bobble hat, somewhere in the crowd
+    new deck.ScenegraphLayer({ id: "spotter", data: spotter, scenegraph: EXTRAS.models.striped,
+      getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: WALKER_SCALE,
+      _animations: animAt(GAIT, 0.5), _lighting: "pbr", getColor: [255, 255, 255],
+      onError: () => { modelFailed = true; return true; } }),
     // procedural rider + bike (models.py): wheels and crank turn, legs follow the pedals
     new deck.ScenegraphLayer({ id: "bikes", data: bikes, scenegraph: EXTRAS.models.cyclist,
       getPosition: d => d.pos, getOrientation: d => [0, -d.heading + 90, 90], sizeScale: 1.6,

@@ -33,6 +33,8 @@ COLOURS = {
     "frame": (0.20, 0.73, 0.93, 1), "tyre": (0.10, 0.10, 0.10, 1), "metal": (0.55, 0.55, 0.58, 1),
     "shirt": (1.00, 0.82, 0.40, 1), "legs": (0.22, 0.22, 0.26, 1), "skin": (0.88, 0.70, 0.60, 1),
     "helmet": (0.95, 0.95, 0.95, 1), "hair": (0.25, 0.17, 0.12, 1),
+    "red": (0.86, 0.10, 0.12, 1), "white": (0.97, 0.97, 0.97, 1), "jeans": (0.18, 0.32, 0.62, 1),
+    "glasses": (0.08, 0.08, 0.08, 1),
 }
 
 # Walker geometry (metres): about 1.7 m tall
@@ -297,18 +299,38 @@ def cyclist_glb() -> bytes:
     return b.glb()
 
 
-def walker_glb(shirt=(0.93, 0.47, 0.20, 1)) -> bytes:
+def walker_glb(shirt=(0.93, 0.47, 0.20, 1), striped: bool = False) -> bytes:
+    """A walking figure. striped=True dresses them in a red-and-white striped jumper,
+    bobble hat, round glasses and blue jeans: one to spot in the crowd."""
     b = _Builder()
     b.mat["shirt"] = len(b.g["materials"])
     b.g["materials"].append({"name": "shirt", "pbrMetallicRoughness": {
-        "baseColorFactor": list(shirt), "metallicFactor": 0.0, "roughnessFactor": 0.8}})
+        "baseColorFactor": list(COLOURS["red"] if striped else shirt), "metallicFactor": 0.0, "roughnessFactor": 0.8}})
     box = _box()
     m = {k: b.mesh(box, k) for k in ("shirt", "legs", "skin", "hair")}
+    if striped:
+        m |= {k: b.mesh(box, k) for k in ("red", "white", "jeans", "glasses")}
+        m["legs"] = m["jeans"]
     root = b.node("walker")
     body = b.node("body", root, translation=[0, walker_pose(0)["hip_y"], 0])
-    b.node("torso", body, mesh=m["shirt"], translation=[0, W_TORSO / 2, 0], scale=[0.22, W_TORSO, 0.40])
+    if striped:
+        n = 8
+        for k in range(n):
+            b.node(f"stripe_{k}", body, mesh=m["red" if k % 2 else "white"],
+                   translation=[0, (k + 0.5) * W_TORSO / n, 0], scale=[0.22, W_TORSO / n, 0.40])
+    else:
+        b.node("torso", body, mesh=m["shirt"], translation=[0, W_TORSO / 2, 0], scale=[0.22, W_TORSO, 0.40])
     b.node("head", body, mesh=m["skin"], translation=[0.01, W_TORSO + 0.15, 0], scale=[0.20, 0.22, 0.18])
-    b.node("hair", body, mesh=m["hair"], translation=[-0.02, W_TORSO + 0.25, 0], scale=[0.20, 0.07, 0.19])
+    if striped:
+        top = W_TORSO + 0.26
+        b.node("hat_band", body, mesh=m["white"], translation=[-0.01, top, 0], scale=[0.22, 0.05, 0.20])
+        b.node("hat", body, mesh=m["red"], translation=[-0.01, top + 0.06, 0], scale=[0.18, 0.08, 0.16])
+        b.node("bobble", body, mesh=m["white"], translation=[-0.01, top + 0.14, 0], scale=[0.08, 0.08, 0.08])
+        for z in (-0.05, 0.05):  # round-ish lenses and a bridge
+            b.node("glasses", body, mesh=m["glasses"], translation=[0.115, W_TORSO + 0.17, z], scale=[0.02, 0.06, 0.07])
+        b.node("glasses_bridge", body, mesh=m["glasses"], translation=[0.115, W_TORSO + 0.18, 0], scale=[0.02, 0.015, 0.04])
+    else:
+        b.node("hair", body, mesh=m["hair"], translation=[-0.02, W_TORSO + 0.25, 0], scale=[0.20, 0.07, 0.19])
     joints = {}
     for side, z in (("R", W_LEG_Z), ("L", -W_LEG_Z)):
         thigh = _limb(b, body, "thigh_" + side, (0, 0), W_THIGH, 0.15, m["legs"], z)

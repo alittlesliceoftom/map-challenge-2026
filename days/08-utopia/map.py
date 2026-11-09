@@ -89,7 +89,12 @@ def main() -> None:
     c.walkable = c.walkable.difference(unary_union(planters).buffer(0.4))
     buses = bus_trips(c, N_BUSES_PER_PULSE, rng)
     # walkers keep off the lane, and time any crossing to miss the buses
-    trips = walker_trips(c, N_WALKERS, rng, buses=buses) + cyclist_trips(c, N_CYCLISTS, rng) + buses
+    walkers = walker_trips(c, N_WALKERS, rng, buses=buses)
+    trips = walkers + cyclist_trips(c, N_CYCLISTS, rng) + buses
+    # one walker in a striped jumper and bobble hat: the longest walk, so (wrapped round the
+    # loop) he is always somewhere; an id divisible by 3 keeps him on the thinned mobile page
+    spotter = max((i for i in range(len(walkers)) if i % 3 == 0),
+                  key=lambda i: walkers[i].timestamps[-1] - walkers[i].timestamps[0])
     reach = unary_union([c.routes[n].buffer(20) for n in WALK_ROUTES + c.lane_routes])
     extras = {
         "loop_s": LOOP_S,
@@ -101,8 +106,10 @@ def main() -> None:
         "planters": {"type": "FeatureCollection", "features": [_geojson(p) for p in planters]},
         "greenery": _greenery(planters, np.random.default_rng(9)),
         "walker_stride": round(walker_stride(), 3),
+        "striped": spotter,
         "models": {"cyclist": _data_uri(cyclist_glb()),
                    **{f"walker_{k}": _data_uri(walker_glb(shirt)) for k, shirt in enumerate(SHIRTS)},
+                   "striped": _data_uri(walker_glb(striped=True)),
                    **{f.stem: _data_uri(f.read_bytes()) for f in sorted((HERE / "models").glob("*.glb"))}},
     }
     out = HERE / "map.html"

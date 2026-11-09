@@ -407,3 +407,16 @@ def test_walker_always_has_a_foot_on_the_ground_and_steps():
     assert {-1.0, 1.0} <= set(lead)
     span = max(abs(p["foot_R"][0] - p["foot_L"][0]) for p in poses)
     assert 0.5 < span < 1.0  # a natural step, not a shuffle or a split
+
+
+def test_striped_walker_has_hat_glasses_and_stripes():
+    from models import walker_glb
+    g = _gltf(walker_glb(striped=True))
+    names = {n.get("name") for n in g["nodes"]}
+    assert {"bobble", "hat", "glasses"} <= names
+    stripes = [n for n in names if n and n.startswith("stripe")]
+    assert len(stripes) >= 6
+    colours = {m["name"]: m["pbrMetallicRoughness"]["baseColorFactor"] for m in g["materials"]}
+    assert {"red", "white", "jeans"} <= set(colours)
+    (anim,) = g["animations"]  # still walks
+    assert len(anim["channels"]) >= 7
