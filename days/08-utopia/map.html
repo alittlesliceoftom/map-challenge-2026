@@ -274,53 +274,61 @@ map.on("load", () => {
     if (/shield|one_way_arrow/.test(l.id)) map.setLayoutProperty(l.id, "visibility", "none");
   }
   requestAnimationFrame(frame);
-  if (!DEEP_LINK && TOUR.length) playTour(); else showReplay();
+  if (!DEEP_LINK && CARDS.length) playTour();
+  else { setButtons(); if (CARDS.length) { openAbout(); showCard(0, 0); } }  // a shared view keeps its camera
 });
 
-// ── Intro tour ──
+// ── Tour = the About cards, auto-advancing ──
+// Each card flies to the view it describes, holds for a moment, then moves on. Touching the
+// map, or clicking back / next, stops the auto-advance; the arrows then step by hand.
 const skipBtn = document.getElementById("skip"), replayBtn = document.getElementById("replay");
-let touring = false, step = 0;
-function showReplay() { skipBtn.hidden = true; replayBtn.hidden = false; aboutOpen.hidden = false; }
-
-// ── About: the tour's story as cards; back / next flies to the view each one describes ──
 const about = document.getElementById("about"), aboutOpen = document.getElementById("about-open");
 const CARDS = TOUR.filter(k => k.caption);
-let card = 0;
-function showCard(i, fly) {
+const DWELL_MS = 2500;  // time on each view once the camera arrives
+let card = 0, touring = false, dwellTimer = null;
+
+function showCard(i, duration) {
   card = (i + CARDS.length) % CARDS.length;
   const k = CARDS[card];
   document.getElementById("about-text").textContent = k.caption;
   document.getElementById("about-count").textContent = (card + 1) + " / " + CARDS.length;
-  if (fly) map.flyTo({ center: k.center, zoom: k.zoom, pitch: k.pitch, bearing: k.bearing,
-                       duration: 2500, curve: 1.2, essential: true });
+  if (duration) map.flyTo({ center: k.center, zoom: k.zoom, pitch: k.pitch, bearing: k.bearing,
+                            duration, curve: 1.2, essential: true });
 }
-function openAbout() { if (!CARDS.length) return; about.hidden = false; aboutOpen.hidden = true; showCard(card, false); }
-document.getElementById("about-prev").onclick = () => showCard(card - 1, true);
-document.getElementById("about-next").onclick = () => showCard(card + 1, true);
-document.getElementById("about-close").onclick = () => { about.hidden = true; aboutOpen.hidden = false; };
-aboutOpen.onclick = openAbout;
-function nextStep() {
+function openAbout() { about.hidden = false; aboutOpen.hidden = true; }
+function setButtons() { skipBtn.hidden = !touring; replayBtn.hidden = touring; }
+
+function onArrive() {
   if (!touring) return;
-  if (step >= TOUR.length) { stopTour(); return; }
-  const k = TOUR[step++];
-  map.once("moveend", nextStep);
-  map.flyTo({ center: k.center, zoom: k.zoom, pitch: k.pitch, bearing: k.bearing,
-              duration: k.duration_ms, curve: 1.2, essential: true });
+  dwellTimer = setTimeout(() => {
+    if (!touring) return;
+    if (card + 1 >= CARDS.length) { stopTour(); return; }  // stay on the last card
+    map.once("moveend", onArrive);
+    showCard(card + 1, CARDS[card + 1].duration_ms);
+  }, DWELL_MS);
 }
 function playTour() {
-  touring = true; step = 0; about.hidden = true; aboutOpen.hidden = true; skipBtn.hidden = false; replayBtn.hidden = true;
-  const k = TOUR[0];
+  if (!CARDS.length) return;
+  touring = true; setButtons(); openAbout();
+  const k = CARDS[0];
   map.jumpTo({ center: k.center, zoom: k.zoom - 0.6, pitch: k.pitch, bearing: k.bearing });
-  nextStep();
+  map.once("moveend", onArrive);
+  showCard(0, k.duration_ms);
 }
 function stopTour() {
   if (!touring) return;
-  touring = false; map.off("moveend", nextStep); map.stop(); showReplay(); openAbout();
+  touring = false; clearTimeout(dwellTimer); map.off("moveend", onArrive); setButtons();
 }
-skipBtn.onclick = stopTour;
+
+document.getElementById("about-prev").onclick = () => { stopTour(); showCard(card - 1, 2500); };
+document.getElementById("about-next").onclick = () => { stopTour(); showCard(card + 1, 2500); };
+document.getElementById("about-close").onclick = () => { stopTour(); about.hidden = true; aboutOpen.hidden = false; };
+aboutOpen.onclick = () => { openAbout(); showCard(card, 0); };
+skipBtn.onclick = () => { stopTour(); map.stop(); };
 replayBtn.onclick = playTour;
 // any touch of the map hands control to the viewer straight away
-for (const ev of ["mousedown", "wheel", "touchstart"]) map.getCanvasContainer().addEventListener(ev, stopTour, { passive: true });
+for (const ev of ["mousedown", "wheel", "touchstart"])
+  map.getCanvasContainer().addEventListener(ev, () => { if (touring) { stopTour(); map.stop(); } }, { passive: true });
 </script>
 </body>
 </html>
